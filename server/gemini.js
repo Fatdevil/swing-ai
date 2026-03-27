@@ -53,9 +53,16 @@ export async function analyzeMotion(videoBase64, cameraAngle, language = 'sv') {
     side: 'side view (face-on)',
     front: 'front-facing view',
     dtl: 'down-the-line view (behind the golfer)',
-  }[cameraAngle] || 'side view';
+    auto: 'unknown angle — you must first determine the camera angle from the video',
+  }[cameraAngle] || 'unknown angle — determine from video';
+
+  const autoDetectInstruction = cameraAngle === 'auto'
+    ? 'IMPORTANT: First determine the camera angle (side/face-on, front, or down-the-line) from the video before analyzing. Adjust your analysis based on what is reliably visible from that angle.'
+    : '';
 
   const prompt = `You are an elite PGA golf coach specializing in MOVEMENT ANALYSIS. You have been given a video of a golf swing from a ${cameraAngleDesc}.
+
+${autoDetectInstruction}
 
 Your UNIQUE role is to analyze the MOTION and DYNAMICS — things that can only be seen in video, not still images:
 
@@ -123,15 +130,19 @@ export async function analyzeFullSwing(videoBase64, cameraAngle, language = 'sv'
     side: 'side view (face-on)',
     front: 'front-facing view',
     dtl: 'down-the-line view (behind the golfer)',
-  }[cameraAngle] || 'side view';
+    auto: 'unknown angle',
+  }[cameraAngle] || 'unknown angle';
 
   const angleCapabilities = {
     side: `CAMERA: SIDE VIEW. Reliably assess: spine tilt, head sway, knee flex, arm extension, shaft lean at impact, weight transfer, tempo, follow-through balance. Less reliable: hip rotation degrees, shoulder turn degrees, club face angle.`,
     front: `CAMERA: FRONT VIEW. Reliably assess: shoulder rotation, hip rotation, X-Factor, weight distribution, arm position. Less reliable: shaft lean, takeaway path.`,
     dtl: `CAMERA: DOWN THE LINE. Reliably assess: swing plane, club face angle, path, spine angle, early extension, takeaway. Less reliable: shoulder turn, hip rotation, lateral sway.`,
+    auto: `CAMERA: AUTO-DETECT. First, determine the camera angle from the video (side/face-on, front, or down-the-line). Then adjust your analysis to only make claims about things reliably visible from that angle.`,
   }[cameraAngle] || '';
 
-  const prompt = `You are a PGA-certified golf coach and biomechanics expert. Analyze this golf swing video from a ${cameraAngleDesc}.
+  const prompt = `You are a PGA-certified golf coach and biomechanics expert. Analyze this golf swing video.${
+    cameraAngle === 'auto' ? ' First determine the camera angle.' : ` Camera angle: ${cameraAngleDesc}.`
+  }
 
 ${angleCapabilities}
 

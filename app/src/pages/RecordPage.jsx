@@ -8,8 +8,8 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [frames, setFrames] = useState(null);
-  const [cameraAngle, setCameraAngle] = useState('side');
-  const [step, setStep] = useState('upload'); // upload | extracting | preview | analyzing | coaching
+  const [cameraAngle, setCameraAngle] = useState('auto');
+  const [step, setStep] = useState('upload'); // upload | extracting | ready | preview | analyzing | coaching
   const [poseResults, setPoseResults] = useState(null);
   const [sequencingData, setSequencingData] = useState(null);
   const [error, setError] = useState(null);
@@ -18,6 +18,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [activeFrame, setActiveFrame] = useState(0);
   const [guestMode, setGuestMode] = useState(false);
   const [tier, setTier] = useState('basic'); // 'basic' | 'premium'
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleFileSelect = useCallback((file) => {
     if (!file) return;
@@ -39,7 +40,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       const { extractFrames } = await import('../utils/videoFrames.js');
       const extracted = await extractFrames(file, 8);
       setFrames(extracted);
-      setStep('preview');
+      setStep('ready');
       setProgress('');
     } catch (err) {
       console.error('Frame extraction failed:', err);
@@ -117,7 +118,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       setSequencingData(seqData);
 
       setPoseResults(results);
-      setStep('preview');
+      setStep('ready');
       setProgress('');
     } catch (err) {
       console.error('Pose analysis failed:', err);
@@ -132,7 +133,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         originalBase64: f.base64,
         timestamp: f.timestamp,
       })));
-      setStep('preview');
+      setStep('ready');
       setProgress('');
     }
   };
@@ -439,10 +440,10 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         </div>
       )}
 
-      {/* STEP 3: Preview frames & analyze */}
-      {(step === 'preview' || step === 'analyzing' || step === 'coaching' || step === 'coaching_error') && frames && (
-        <div className="space-y-6">
-          {/* Guest Mode Banner — persistent during analysis */}
+      {/* STEP 3: Ready — video preview + tier + analyze */}
+      {(step === 'ready' || step === 'analyzing' || step === 'coaching' || step === 'coaching_error') && frames && (
+        <div className="space-y-5">
+          {/* Guest Mode Banner */}
           {guestMode && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2.5 flex items-center gap-2">
               <span className="material-symbols-outlined text-amber-400 text-sm animate-pulse">group</span>
@@ -452,100 +453,22 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
             </div>
           )}
 
-          {/* Active frame display */}
-          <div className="relative rounded-lg overflow-hidden bg-surface-container border border-outline-variant/10">
-            <img
-              src={poseResults?.[activeFrame]?.overlayBase64 || frames[activeFrame]?.base64}
-              alt={`Frame ${activeFrame + 1}`}
-              className="w-full h-auto max-h-[50vh] object-contain"
-            />
-            {/* HUD overlay */}
-            <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-white/10">
-              <div className="flex items-center gap-2">
-                {poseResults?.[activeFrame]?.landmarks && (
-                  <span className="w-2 h-2 rounded-full bg-primary-fixed animate-pulse shadow-[0_0_8px_#9dff00]" />
-                )}
+          {/* Video Preview */}
+          {videoUrl && (
+            <div className="relative rounded-xl overflow-hidden bg-surface-container border border-outline-variant/10">
+              <video
+                src={videoUrl}
+                controls
+                playsInline
+                className="w-full max-h-[50vh] object-contain bg-black"
+              />
+              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md rounded-lg px-3 py-1.5 border border-white/10">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-primary-fixed font-headline">
-                  {language === 'sv'
-                    ? poseResults?.[activeFrame]?.phaseSv || getPhaseLabel(activeFrame, 'sv')
-                    : poseResults?.[activeFrame]?.phase || getPhaseLabel(activeFrame, 'en')}
+                  {language === 'sv' ? '✓ Video redo' : '✓ Video ready'}
                 </span>
               </div>
             </div>
-            <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-white/10">
-              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-                {activeFrame + 1} / {frames.length}
-              </span>
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent pointer-events-none" />
-          </div>
-
-          {/* Frame timeline strip */}
-          <div className="flex gap-2 overflow-x-auto no-scrollbar py-2">
-            {frames.map((frame, i) => (
-              <button
-                key={i}
-                onClick={() => setActiveFrame(i)}
-                className={`flex-shrink-0 relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                  activeFrame === i
-                    ? 'border-primary-fixed shadow-[0_0_10px_rgba(157,255,0,0.3)]'
-                    : 'border-transparent opacity-60 hover:opacity-100'
-                }`}
-              >
-                <img
-                  src={poseResults?.[i]?.overlayBase64 || frame.base64}
-                  alt={`Frame ${i + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                {poseResults?.[i]?.landmarks && (
-                  <div className="absolute bottom-0 inset-x-0 bg-primary-fixed/80 text-on-primary-fixed text-[8px] text-center font-bold py-0.5">
-                    ✓
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Measurements for active frame (if available) */}
-          {poseResults?.[activeFrame]?.measurements && (
-            <div className="grid grid-cols-3 gap-3">
-              {Object.entries(poseResults[activeFrame].measurements).slice(0, 3).map(([key, m]) => (
-                <div key={key} className="bg-surface-container/60 backdrop-blur-md p-3 rounded-lg border border-white/5 flex flex-col items-center">
-                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-                    {t(key) || key}
-                  </span>
-                  <span className={`text-sm font-headline font-bold ${
-                    m.status === 'good' ? 'text-primary-fixed' : m.status === 'warning' ? 'text-secondary' : 'text-error'
-                  }`}>
-                    {m.value.toFixed(1)}°
-                  </span>
-                </div>
-              ))}
-            </div>
           )}
-
-          {/* Camera Angle Selector */}
-          <div className="space-y-3">
-            <p className="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-              {t('cameraAngle')}
-            </p>
-            <div className="flex gap-3">
-              {angles.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setCameraAngle(a.id)}
-                  className={`flex-1 py-3 px-2 rounded-full font-label text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
-                    cameraAngle === a.id
-                      ? 'bg-primary-fixed text-on-primary-fixed'
-                      : 'bg-surface-container-high border border-outline-variant/20 text-on-surface hover:border-primary-fixed'
-                  }`}
-                >
-                  <span>{a.icon}</span>
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Tier Selector */}
           <div className="space-y-3">
@@ -603,6 +526,87 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
             </div>
           </div>
 
+          {/* Advanced Options (expandable) */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full flex items-center justify-between text-on-surface-variant text-xs font-bold uppercase tracking-widest py-2 hover:text-on-surface transition-colors"
+          >
+            <span>{language === 'sv' ? 'Avancerat' : 'Advanced'}</span>
+            <span className={`material-symbols-outlined text-sm transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>
+              expand_more
+            </span>
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-5 bg-surface-container/50 rounded-xl p-4 border border-outline-variant/10">
+              {/* Camera Angle Selector */}
+              <div className="space-y-2">
+                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  {language === 'sv' ? 'Kameravinkel (auto-detect som standard)' : 'Camera Angle (auto-detect by default)'}
+                </p>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'auto', label: 'Auto', icon: '🤖' },
+                    { id: 'side', label: 'Side', icon: '👤' },
+                    { id: 'front', label: 'Front', icon: '🧑' },
+                    { id: 'dtl', label: 'DTL', icon: '🔄' },
+                  ].map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => setCameraAngle(a.id)}
+                      className={`flex-1 py-2 px-1 rounded-full font-label text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 ${
+                        cameraAngle === a.id
+                          ? 'bg-primary-fixed text-on-primary-fixed'
+                          : 'bg-surface-container-high border border-outline-variant/20 text-on-surface-variant hover:border-primary-fixed'
+                      }`}
+                    >
+                      <span className="text-xs">{a.icon}</span>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Frame Preview */}
+              <div className="space-y-2">
+                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  {language === 'sv' ? 'Extraherade frames' : 'Extracted Frames'}
+                </p>
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {frames.map((frame, i) => (
+                    <div key={i} className="flex-shrink-0 relative w-14 h-14 rounded-lg overflow-hidden border border-outline-variant/10">
+                      <img
+                        src={poseResults?.[i]?.overlayBase64 || frame.base64}
+                        alt={`Frame ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[7px] text-center py-0.5 font-bold">
+                        {getPhaseLabel(i, language === 'sv' ? 'sv' : 'en').split(' ')[0]}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pose Analysis Button */}
+              {!poseResults && step !== 'analyzing' && (
+                <button
+                  onClick={handleAnalyzePose}
+                  className="w-full bg-surface-container-high text-on-surface h-10 rounded-full flex items-center justify-center gap-2 font-headline font-bold uppercase tracking-widest text-[10px] border border-outline-variant/20 hover:border-primary-fixed transition-all"
+                >
+                  <span className="material-symbols-outlined text-sm">body_system</span>
+                  {language === 'sv' ? 'Kör lokal pose-analys (valfritt)' : 'Run local pose analysis (optional)'}
+                </button>
+              )}
+              {poseResults && (
+                <div className="flex items-center gap-2 text-primary-fixed text-xs">
+                  <span className="material-symbols-filled text-sm">check_circle</span>
+                  {language === 'sv' ? 'Pose-analys klar' : 'Pose analysis complete'}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="bg-error-container/20 text-error rounded-lg p-4 text-sm">{error}</div>
@@ -627,9 +631,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
                   </p>
                   <p className="text-error/70 text-xs mt-1">{error}</p>
                   <p className="text-on-surface-variant text-xs mt-2">
-                    {language === 'sv'
-                      ? 'Din pose-analys finns kvar. Tryck nedan för att försöka igen.'
-                      : 'Your pose analysis is preserved. Press below to try again.'}
+                    {language === 'sv' ? 'Tryck nedan för att försöka igen.' : 'Press below to try again.'}
                   </p>
                 </div>
               </div>
@@ -643,25 +645,18 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Main Action Buttons */}
           <div className="flex flex-col gap-4">
-            {!poseResults && step !== 'analyzing' && (
-              <button
-                onClick={handleAnalyzePose}
-                className="w-full bg-primary-fixed text-on-primary-fixed h-16 rounded-full flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-[0_10px_30px_rgba(157,255,0,0.2)] font-headline font-bold uppercase tracking-widest text-sm"
-              >
-                <span className="material-symbols-outlined">body_system</span>
-                {t('analyzePose')}
-              </button>
-            )}
-
-            {poseResults && step !== 'coaching' && step !== 'coaching_error' && (
+            {step !== 'coaching' && step !== 'coaching_error' && (
               <button
                 onClick={handleGetCoaching}
-                className="w-full kinetic-gradient text-on-primary-fixed h-16 rounded-full flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-[0_10px_30px_rgba(157,255,0,0.2)] font-headline font-bold uppercase tracking-widest text-sm"
+                disabled={step === 'analyzing'}
+                className="w-full kinetic-gradient text-on-primary-fixed h-16 rounded-full flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-[0_10px_30px_rgba(157,255,0,0.2)] font-headline font-bold uppercase tracking-widest text-sm disabled:opacity-50"
               >
                 <span className="material-symbols-filled">psychology</span>
-                {t('getCoaching')}
+                {tier === 'premium'
+                  ? (language === 'sv' ? 'Analysera (Dual Engine)' : 'Analyze (Dual Engine)')
+                  : (language === 'sv' ? 'Analysera sving' : 'Analyze Swing')}
               </button>
             )}
 
