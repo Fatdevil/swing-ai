@@ -7,10 +7,11 @@ export default function ProfilePage() {
   const { t, language, setLanguage } = useLanguage();
   const sv = language === 'sv';
   const { user, logout } = useAuth();
-  const [apiKey, setApiKey] = useState(() => getSetting('anthropic_key', ''));
+  const [apiKey, setApiKey] = useState(''); // legacy, not used
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [stats, setStats] = useState(null);
+  const [engines, setEngines] = useState(null);
 
   useEffect(() => {
     getHistory().then(history => {
@@ -25,6 +26,9 @@ export default function ProfilePage() {
         newest: new Date(history[0].timestamp),
       });
     }).catch(() => {});
+
+    // Check engine status
+    fetch('/api/engines').then(r => r.json()).then(setEngines).catch(() => {});
   }, [cleared]);
 
   const handleApiKeyChange = (e) => {
@@ -109,20 +113,42 @@ export default function ProfilePage() {
         </section>
       )}
 
-      {/* API Key */}
+      {/* AI Engines */}
       <section className="bg-surface-container rounded-lg p-6 border border-outline-variant/10 space-y-4">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-primary-fixed">key</span>
-          <h3 className="font-headline font-bold">{t('apiKey')}</h3>
+          <span className="material-symbols-outlined text-primary-fixed">smart_toy</span>
+          <h3 className="font-headline font-bold">{sv ? 'AI-motorer' : 'AI Engines'}</h3>
+          {engines?.dualEngine && (
+            <span className="ml-auto px-2 py-0.5 bg-primary-fixed/15 text-primary-fixed text-[10px] font-bold uppercase tracking-widest rounded-full border border-primary-fixed/20">
+              Dual Engine ⚡
+            </span>
+          )}
         </div>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={handleApiKeyChange}
-          placeholder={t('apiKeyPlaceholder')}
-          className="w-full bg-surface-container-lowest text-on-surface px-4 py-3 rounded-lg border border-outline-variant/15 focus:border-primary-fixed/40 focus:outline-none transition-colors font-body text-sm"
-        />
-        <p className="text-on-surface-variant text-xs">{t('apiKeyHelp')}</p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🎬</span>
+              <span className="text-sm text-on-surface">Gemini 2.5 Pro</span>
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">{sv ? 'Rörelseanalys' : 'Motion'}</span>
+            </div>
+            <span className={`text-xs font-bold ${engines?.gemini ? 'text-primary-fixed' : 'text-on-surface-variant/40'}`}>
+              {engines?.gemini ? '✅' : '—'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">📐</span>
+              <span className="text-sm text-on-surface">Claude Sonnet</span>
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">{sv ? 'Positionsanalys' : 'Position'}</span>
+            </div>
+            <span className={`text-xs font-bold ${engines?.claude ? 'text-primary-fixed' : 'text-on-surface-variant/40'}`}>
+              {engines?.claude ? '✅' : '—'}
+            </span>
+          </div>
+        </div>
+        <p className="text-on-surface-variant text-[10px]">
+          {sv ? 'AI-nycklar hanteras av servern — ingen konfiguration behövs' : 'API keys are managed server-side — no configuration needed'}
+        </p>
       </section>
 
       {/* Language */}

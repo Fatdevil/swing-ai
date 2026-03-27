@@ -55,6 +55,45 @@ export default function ResultsPage({ data, onBack }) {
         {t('home')}
       </button>
 
+      {/* Dual Engine Badge */}
+      {data._meta?.dualEngine && (
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary-fixed/10 rounded-full border border-primary-fixed/20">
+            <span className="text-xs">🎬</span>
+            <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Gemini</span>
+            <span className="text-on-surface-variant text-[10px]">+</span>
+            <span className="text-xs">📐</span>
+            <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Claude</span>
+            <span className="text-on-surface-variant/50 text-[8px] ml-1">⚡ DUAL ENGINE</span>
+          </div>
+        </div>
+      )}
+
+      {/* Dual Engine Insights */}
+      {data.dualEngineInsights?.length > 0 && (
+        <section className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-fixed text-lg">neurology</span>
+            <h3 className="font-headline font-bold text-sm text-primary-fixed uppercase tracking-wider">
+              {language === 'sv' ? 'Kombinerade insikter' : 'Combined Insights'}
+            </h3>
+          </div>
+          {data.dualEngineInsights.map((item, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-primary-fixed text-xs mt-0.5">🧠</span>
+              <p className="text-on-surface text-sm leading-relaxed">{item.insight}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Coaching Summary */}
+      {data.coachingSummary && (
+        <div className="bg-surface-container-high/50 rounded-lg p-4 border border-outline-variant/10">
+          <p className="text-on-surface text-sm leading-relaxed italic">{data.coachingSummary}</p>
+        </div>
+      )}
+
       {/* Score Gauge */}
       <div className="flex flex-col items-center">
         <div className="relative w-48 h-48 mb-6">

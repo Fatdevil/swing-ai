@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPhaseLabel } from '../utils/videoFrames';
+import { analyzeSwing, fileToBase64 } from '../utils/api';
 
 export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const { t, language } = useLanguage();
@@ -139,10 +140,10 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     setStep('coaching');
     setError(null);
 
-    // Multi-step progress messages
+    // Multi-step progress messages (dual engine)
     const progressSteps = language === 'sv'
-      ? ['Skickar frames till AI-coach...', 'AI analyserar din sving...', 'Bygger coaching-rapport...']
-      : ['Sending frames to AI coach...', 'AI analyzing your swing...', 'Building coaching report...'];
+      ? ['Konverterar video...', '🎬 Gemini analyserar rörelse...', '📐 Claude analyserar positioner...', '🧠 Sammanfattar coaching-rapport...']
+      : ['Converting video...', '🎬 Gemini analyzing motion...', '📐 Claude analyzing positions...', '🧠 Building coaching report...'];
 
     setProgress(progressSteps[0]);
     const progressTimer = setInterval(() => {
@@ -150,13 +151,22 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         const idx = progressSteps.indexOf(prev);
         return idx < progressSteps.length - 1 ? progressSteps[idx + 1] : prev;
       });
-    }, 5000);
+    }, 4000);
 
     try {
-      const { getCoaching } = await import('../utils/claude.js');
       const { createVideoThumbnail } = await import('../utils/videoFrames.js');
 
-      // Build frame data for Claude
+      // Convert video to base64 for Gemini
+      let videoBase64 = null;
+      if (videoFile) {
+        try {
+          videoBase64 = await fileToBase64(videoFile);
+        } catch (e) {
+          console.warn('Video base64 conversion failed:', e);
+        }
+      }
+
+      // Build frame data
       const frameData = (poseResults || frames.map((f, i) => ({
         frameIndex: i,
         phase: getPhaseLabel(i, 'en'),
@@ -168,7 +178,40 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         measurements: r.measurements,
       }));
 
-      const result = await getCoaching(frameData, cameraAngle, sequencingData, { guestMode });
+      // Build knowledge base and coaching context
+      let knowledgeBase = '';
+      let coachingProfile = '';
+      let coachingHistory = '';
+      try {
+        const { buildKnowledgeBasePrompt } = await import('../utils/golfKnowledge.js');
+        knowledgeBase = buildKnowledgeBasePrompt(language);
+      } catch { /* optional */ }
+      if (!guestMode) {
+        try {
+          const { getSetting } = await import('../utils/storage.js');
+          const profileStr = getSetting('coaching_profile');
+          if (profileStr) coachingProfile = profileStr;
+        } catch { /* optional */ }
+        try {
+          const { getCoachingHistory, buildCoachingHistoryPrompt } = await import('../utils/coachingHistory.js');
+          const history = await getCoachingHistory();
+          coachingHistory = buildCoachingHistoryPrompt(history, language);
+        } catch { /* optional */ }
+      }
+
+      // Call backend API (handles both engines + summarizer)
+      const result = await analyzeSwing({
+        video: videoBase64,
+        frames: frameData,
+        cameraAngle,
+        language,
+        guestMode,
+        sequencing: sequencingData,
+        knowledgeBase,
+        coachingProfile,
+        coachingHistory,
+      });
+
       clearInterval(progressTimer);
 
       // Create thumbnail for history
