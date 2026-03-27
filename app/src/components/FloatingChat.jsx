@@ -69,7 +69,7 @@ export default function FloatingChat() {
     <>
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 z-50 w-[340px] max-w-[calc(100vw-2rem)] bg-surface-container-high rounded-2xl shadow-2xl border border-outline-variant/15 flex flex-col overflow-hidden"
+        <div className="fixed bottom-36 right-4 z-50 w-[340px] max-w-[calc(100vw-2rem)] bg-surface-container-high rounded-2xl shadow-2xl border border-outline-variant/15 flex flex-col overflow-hidden"
           style={{ maxHeight: 'min(500px, 70vh)' }}
         >
           {/* Header */}
@@ -169,7 +169,7 @@ export default function FloatingChat() {
       {/* FAB Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+        className={`fixed bottom-[5.5rem] right-4 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
           isOpen
             ? 'bg-surface-container-high border border-outline-variant/20 rotate-0'
             : 'kinetic-gradient shadow-[0_4px_20px_rgba(157,255,0,0.3)]'
