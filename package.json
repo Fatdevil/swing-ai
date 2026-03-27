@@ -1,0 +1,7 @@
+{
+    "name": "swing-ai-root",
+    "private": true,
+    "engines": {
+          "node": "20.x"
+    }
+}
