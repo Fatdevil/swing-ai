@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&amp;family=Inter:wght@300..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#5d5900",
+              "on-error": "#450900",
+              "primary-fixed": "#9dff00",
+              "error-dim": "#d53d18",
+              "tertiary-container": "#f7f05c",
+              "surface-tint": "#dcffb2",
+              "inverse-on-surface": "#565555",
+              "primary": "#dcffb2",
+              "tertiary-fixed": "#fdf661",
+              "secondary": "#daed63",
+              "on-primary-fixed": "#2a4900",
+              "on-primary-container": "#375d00",
+              "outline": "#767575",
+              "background": "#0e0e0e",
+              "surface-dim": "#0e0e0e",
+              "on-tertiary-fixed-variant": "#6b6700",
+              "on-secondary-container": "#f4ffa7",
+              "surface-bright": "#2c2c2c",
+              "surface-container-high": "#20201f",
+              "surface-variant": "#262626",
+              "on-secondary-fixed": "#3b4300",
+              "surface-container": "#1a1a1a",
+              "error": "#ff7351",
+              "surface-container-highest": "#262626",
+              "on-error-container": "#ffd2c8",
+              "tertiary-fixed-dim": "#efe754",
+              "secondary-container": "#596400",
+              "on-surface": "#ffffff",
+              "primary-dim": "#93ef00",
+              "primary-container": "#9dff00",
+              "on-tertiary": "#656100",
+              "error-container": "#b92902",
+              "on-tertiary-fixed": "#4d4a00",
+              "on-primary": "#3c6700",
+              "surface": "#0e0e0e",
+              "on-primary-fixed-variant": "#3e6800",
+              "secondary-fixed-dim": "#ccde57",
+              "tertiary": "#fffada",
+              "inverse-primary": "#3f6a00",
+              "inverse-surface": "#fcf9f8",
+              "on-surface-variant": "#adaaaa",
+              "tertiary-dim": "#efe754",
+              "primary-fixed-dim": "#93ef00",
+              "secondary-fixed": "#daed63",
+              "on-secondary": "#4d5700",
+              "on-secondary-fixed-variant": "#566100",
+              "on-background": "#ffffff",
+              "outline-variant": "#484847",
+              "surface-container-lowest": "#000000",
+              "secondary-dim": "#ccde57",
+              "surface-container-low": "#131313"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-kinetic-gradient {
+            background: linear-gradient(135deg, #9DFF00 0%, #93EF00 100%);
+        }
+        .glass-panel {
+            background: rgba(26, 26, 26, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0e0e0e]/70 backdrop-blur-xl border-b border-white/10 shadow-[0_0_20px_rgba(157,255,0,0.08)]">
+<div class="flex justify-between items-center px-6 h-16 w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/20">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="User profile avatar headshot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDj1nFU2JxDyGvyblPVHXYpkx8zg5rPyqSVDFRvg0OJFmMqb1LFDYBT1OL4jW2LtzqZATRvDB0fiFP9lYTJHGd1QFTjwXucEPpCFRcYuWANRfres4NLc1cH88mbaZG5b7FTJwrXcX3zcVp3otkPcyWYAAy5eJ0q01w3mcA8uYsZFFFuGt8cYaSFCT1fwNUGucPOR_vugNATZJwa2VqpeS5AFQ3Hc-mahEpUicczH_5xU0dW7kDLWVd089jMlCCTn35jTKTrAt9WqVc"/>
+</div>
+</div>
+<h1 class="font-['Space_Grotesk'] tracking-tighter uppercase font-bold text-xl font-black text-[#9DFF00] tracking-widest">SWING_AI</h1>
+<button class="text-[#ADAAAA] hover:text-[#9DFF00] transition-colors active:scale-95 duration-200">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32 px-6 max-w-7xl mx-auto space-y-10">
+<!-- Hero Section: Kinetic Score -->
+<section class="relative group">
+<div class="absolute -inset-1 bg-primary-fixed/10 blur-3xl rounded-lg opacity-50"></div>
+<div class="relative bg-surface-container-low p-8 rounded-lg border border-outline-variant/10 overflow-hidden">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<span class="font-label text-primary-fixed uppercase tracking-[0.2em] text-xs font-bold">Performance Summary</span>
+<h2 class="font-headline text-5xl md:text-7xl font-bold tracking-tighter text-on-surface">
+                            Last Swing Score: <span class="text-primary-fixed drop-shadow-[0_0_15px_rgba(157,255,0,0.4)]">84</span>
+</h2>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-high p-4 rounded-full border border-outline-variant/15">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-error"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-primary-fixed"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface bg-secondary"></div>
+</div>
+<span class="text-on-surface-variant text-sm font-medium tracking-tight">Top 12% in Region</span>
+</div>
+</div>
+<!-- Background Decorative Element -->
+<div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-primary-fixed/5 rounded-full blur-3xl"></div>
+</div>
+</section>
+<!-- Quick Actions: Asymmetric Layout -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<div class="md:col-span-8 group relative bg-kinetic-gradient p-[1px] rounded-lg">
+<div class="bg-surface-container h-full w-full rounded-[calc(2rem-1px)] p-8 flex flex-col justify-between transition-all group-hover:bg-surface-container-high">
+<div class="flex justify-between items-start">
+<div class="space-y-4">
+<h3 class="font-headline text-3xl font-bold leading-none">Start New<br/>Analysis</h3>
+<p class="text-on-surface-variant max-w-[240px] text-sm leading-relaxed">AI-powered posture and velocity tracking in real-time.</p>
+</div>
+<div class="bg-primary-fixed/10 p-4 rounded-full">
+<span class="material-symbols-outlined text-primary-fixed text-4xl" style="font-variation-settings: 'FILL' 1;">videocam</span>
+</div>
+</div>
+<button class="mt-8 bg-primary-fixed text-on-primary-fixed font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 active:scale-95 duration-200 w-fit shadow-[0_4px_20px_rgba(157,255,0,0.2)]">
+                        Launch Camera
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="md:col-span-4 bg-surface-container-high p-8 rounded-lg flex flex-col justify-between border border-outline-variant/10 hover:border-primary-fixed/30 transition-all">
+<div class="space-y-4">
+<div class="text-on-surface-variant">
+<span class="material-symbols-outlined text-3xl">cloud_upload</span>
+</div>
+<h3 class="font-headline text-2xl font-bold">Upload Video</h3>
+<p class="text-on-surface-variant text-sm">Analyze existing footage from your library.</p>
+</div>
+<button class="mt-6 border border-outline-variant/30 text-on-surface font-bold py-3 px-6 rounded-md hover:bg-surface-bright transition-colors active:scale-95">
+                    Browse Files
+                </button>
+</div>
+</section>
+<!-- Recent Swings: Bento Grid Style -->
+<section class="space-y-6">
+<div class="flex items-end justify-between">
+<h3 class="font-headline text-2xl font-bold tracking-tight">Recent Swings</h3>
+<a class="text-primary-fixed text-sm font-bold uppercase tracking-widest hover:underline decoration-2 underline-offset-8" href="#">View Library</a>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Swing Card 1 -->
+<div class="group bg-surface-container rounded-lg overflow-hidden border border-outline-variant/10 hover:shadow-[0_10px_30px_rgba(0,0,0,0.4)] transition-all">
+<div class="relative h-48 overflow-hidden">
+<img alt="Swing Thumbnail" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Golfer mid-swing at golden hour" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUH9WElMj93q43cHPFicWi7jFZnAYjZ5_eTLvo_lEul6GhQoGAfYu4DImkYheRS537OKuDmOBzGRWQczkJcZf25Xypa4rUEYJUc-uTyRbss_iCA1g0ENauyCa1jJMHuwI9hAAIjoEMhQkMJ0X-xQrHzqP4me_zII369QRcaDgk62AB-AMCIXLu_E6Z2_5elWuYEkIxy86wsFMuu6YbrZQOklaLI2K5Q9Zpb1NS0IkLguA5VwBD-AHOmuX88wpRaT-V4VuIPnIeMqY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex items-center gap-2">
+<span class="bg-primary-fixed text-on-primary-fixed text-[10px] font-black px-2 py-0.5 rounded-full">PRO</span>
+<span class="text-on-surface text-xs font-medium">8:24 AM</span>
+</div>
+</div>
+<div class="p-6 flex justify-between items-center">
+<div class="space-y-1">
+<p class="text-on-surface font-bold">Morning Session</p>
+<p class="text-on-surface-variant text-xs font-medium">Driver • Oct 24, 2023</p>
+</div>
+<div class="text-right">
+<span class="text-primary-fixed font-headline text-2xl font-bold">88</span>
+</div>
+</div>
+</div>
+<!-- Swing Card 2 -->
+<div class="group bg-surface-container rounded-lg overflow-hidden border border-outline-variant/10 hover:shadow-[0_10px_30px_rgba(0,0,0,0.4)] transition-all">
+<div class="relative h-48 overflow-hidden">
+<img alt="Swing Thumbnail" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Golf ball on tee with club approaching" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrrdEOK3wKD0ZK115FzsktTl42qp8nLSO9vtWvzlEV0jKrekxnJMf3cxJhsYBPfUQnwf8PpqqnBGj2CKceIUnWyFC8rtx0MYE01n6mdqwdcEWOYzHm-OA3M313-RO9-MFwBo4_5LTeuw6htPrZKw9yF_T5D_GBScGEAIl3Ixuq00Rq3FRwksUpbnXoKPG2GmH8Oq17LpnvmzqGhd4Jg7SRYIxhJzn5aQ6b_Sl2M98Q7wSHPai8SFoH0apKuCHkCL6fn-3zXBorTco"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex items-center gap-2">
+<span class="bg-error text-on-error text-[10px] font-black px-2 py-0.5 rounded-full">ALERT</span>
+<span class="text-on-surface text-xs font-medium">4:12 PM</span>
+</div>
+</div>
+<div class="p-6 flex justify-between items-center">
+<div class="space-y-1">
+<p class="text-on-surface font-bold">Range Practice</p>
+<p class="text-on-surface-variant text-xs font-medium">7-Iron • Oct 22, 2023</p>
+</div>
+<div class="text-right">
+<span class="text-on-surface font-headline text-2xl font-bold">72</span>
+</div>
+</div>
+</div>
+<!-- Swing Card 3 -->
+<div class="group bg-surface-container rounded-lg overflow-hidden border border-outline-variant/10 hover:shadow-[0_10px_30px_rgba(0,0,0,0.4)] transition-all">
+<div class="relative h-48 overflow-hidden">
+<img alt="Swing Thumbnail" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Golfer finishing follow through on green" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ9iOCLyojfP5YNuUquwfzV-WBc1CELe_YSKqZwroq-DHNIiPS51tPaYgFFzycFt15C0RKKZlAuLn97_jTB811A3lbdMGHwz_4b7AWIdh5QvIfYlnmbE-OoOKXQGEwTwThBrXoBLkquGyMkOvobGSCYkACO0mWKQ8Lq4zzsMO3k5FmUyyKjgaJvIDsAKEzT6ulr7e7xUf35tuMVG-6dhQgAPHWaa5KKXdXxCozCZdwI6ytiJdwFUIpSJ1voE3NGQYuvmFc35RIqnQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex items-center gap-2">
+<span class="bg-secondary text-on-secondary text-[10px] font-black px-2 py-0.5 rounded-full">STABLE</span>
+<span class="text-on-surface text-xs font-medium">11:05 AM</span>
+</div>
+</div>
+<div class="p-6 flex justify-between items-center">
+<div class="space-y-1">
+<p class="text-on-surface font-bold">Clubhouse 9-Hole</p>
+<p class="text-on-surface-variant text-xs font-medium">Driver • Oct 21, 2023</p>
+</div>
+<div class="text-right">
+<span class="text-primary-fixed font-headline text-2xl font-bold">81</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- AI Insights Peek -->
+<section class="bg-surface-container-highest/30 rounded-lg p-8 border border-white/5 backdrop-blur-sm">
+<div class="flex flex-col md:flex-row gap-8 items-center">
+<div class="relative w-32 h-32 flex-shrink-0">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-variant" cx="64" cy="64" fill="transparent" r="60" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary-fixed" cx="64" cy="64" fill="transparent" r="60" stroke="currentColor" stroke-dasharray="376.8" stroke-dashoffset="75.36" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center flex-col">
+<span class="text-2xl font-black text-on-surface">80%</span>
+<span class="text-[8px] uppercase tracking-widest text-on-surface-variant">Consistency</span>
+</div>
+</div>
+<div class="space-y-3">
+<h4 class="font-headline text-xl font-bold text-primary-fixed">AI Coach Recommendation</h4>
+<p class="text-on-surface-variant text-sm max-w-2xl leading-relaxed">
+                        Your hip rotation has improved by <span class="text-on-surface font-bold">14%</span> this week. Focus on maintaining a wider stance during your backswing to stabilize your base velocity.
+                    </p>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe bg-[#0e0e0e]/80 backdrop-blur-2xl border-t border-white/5 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+<div class="flex justify-around items-center h-20 px-4 w-full max-w-7xl mx-auto">
+<a class="flex flex-col items-center justify-center text-[#9DFF00] bg-[#9DFF00]/10 rounded-full py-1 px-4 active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#ADAAAA] hover:text-white transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">videocam</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Record</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#ADAAAA] hover:text-white transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">video_library</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Library</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#ADAAAA] hover:text-white transition-all active:scale-90 duration-300 ease-out" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Profile</span>
+</a>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/* ========================================
+   SWING_AI — Kinetic Lens Design System
+   Tailwind CSS v4 Theme Configuration
+======================================== */
+
+@theme {
+  /* Primary */
+  --color-primary-fixed: #9dff00;
+  --color-primary: #dcffb2;
+  --color-primary-dim: #93ef00;
+  --color-primary-container: #9dff00;
+  --color-on-primary-fixed: #2a4900;
+  --color-on-primary: #3c6700;
+  --color-on-primary-container: #375d00;
+  --color-on-primary-fixed-variant: #3e6800;
+  --color-inverse-primary: #3f6a00;
+  --color-primary-fixed-dim: #93ef00;
+
+  /* Secondary */
+  --color-secondary: #daed63;
+  --color-secondary-dim: #ccde57;
+  --color-secondary-container: #596400;
+  --color-secondary-fixed: #daed63;
+  --color-secondary-fixed-dim: #ccde57;
+  --color-on-secondary: #4d5700;
+  --color-on-secondary-fixed: #3b4300;
+  --color-on-secondary-container: #f4ffa7;
+  --color-on-secondary-fixed-variant: #566100;
+
+  /* Tertiary */
+  --color-tertiary: #fffada;
+  --color-tertiary-dim: #efe754;
+  --color-tertiary-container: #f7f05c;
+  --color-tertiary-fixed: #fdf661;
+  --color-tertiary-fixed-dim: #efe754;
+  --color-on-tertiary: #656100;
+  --color-on-tertiary-container: #5d5900;
+  --color-on-tertiary-fixed: #4d4a00;
+  --color-on-tertiary-fixed-variant: #6b6700;
+
+  /* Error */
+  --color-error: #ff7351;
+  --color-error-dim: #d53d18;
+  --color-error-container: #b92902;
+  --color-on-error: #450900;
+  --color-on-error-container: #ffd2c8;
+
+  /* Surfaces — the "void" */
+  --color-background: #0e0e0e;
+  --color-surface: #0e0e0e;
+  --color-surface-dim: #0e0e0e;
+  --color-surface-bright: #2c2c2c;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low: #131313;
+  --color-surface-container: #1a1a1a;
+  --color-surface-container-high: #20201f;
+  --color-surface-container-highest: #262626;
+  --color-surface-variant: #262626;
+  --color-surface-tint: #dcffb2;
+
+  /* Text & outline */
+  --color-on-surface: #ffffff;
+  --color-on-background: #ffffff;
+  --color-on-surface-variant: #adaaaa;
+  --color-outline: #767575;
+  --color-outline-variant: #484847;
+  --color-inverse-surface: #fcf9f8;
+  --color-inverse-on-surface: #565555;
+
+  /* Typography */
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  /* Border Radius */
+  --radius: 1rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+  --radius-full: 9999px;
+}
+
+/* ========================================
+   Global & Base Styles
+======================================== */
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--color-primary-fixed);
+  color: var(--color-on-primary-fixed);
+}
+
+/* ========================================
+   Material Symbols
+======================================== */
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-filled {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ========================================
+   Kinetic Lens — Custom Utilities
+======================================== */
+
+/* Glass Panel — for floating cards and overlays */
+.glass-panel {
+  background: rgba(26, 26, 26, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(72, 72, 71, 0.15);
+}
+
+/* Kinetic Gradient — "lit from within" CTA energy */
+.kinetic-gradient {
+  background: linear-gradient(135deg, #9DFF00 0%, #93EF00 100%);
+}
+
+/* Kinetic Border — subtle neon green edge */
+.kinetic-border {
+  border: 1px solid rgba(157, 255, 0, 0.15);
+}
+
+/* Kinetic Gradient Border — premium card edge from Stitch design */
+.kinetic-gradient-border {
+  position: relative;
+}
+.kinetic-gradient-border::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(157, 255, 0, 0.2), transparent 40%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* HUD Scanline overlay — Recording View */
+.hud-scanline {
+  background: linear-gradient(to bottom, transparent 50%, rgba(157, 255, 0, 0.05) 50%);
+  background-size: 100% 4px;
+}
+
+/* Camera corner brackets */
+.camera-corner {
+  width: 40px;
+  height: 40px;
+  border-color: #9dff00;
+}
+
+/* Score gauge — conic gradient */
+.gauge-conic {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    #9DFF00 0%,
+    #9DFF00 var(--gauge-percent, 0%),
+    #262626 var(--gauge-percent, 0%),
+    #262626 100%
+  );
+}
+
+/* ========================================
+   Scrollbar & Helpers
+======================================== */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area padding for bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ========================================
+   Animations
+======================================== */
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px #9dff00; }
+  50% { opacity: 0.6; box-shadow: 0 0 4px #9dff00; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
