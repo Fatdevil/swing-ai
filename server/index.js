@@ -176,7 +176,7 @@ app.post('/api/analyze', async (req, res) => {
 
 // ─── SPA Fallback (must be last) ─────────────────────────────
 
-app.get('/{path+}', (req, res) => {
+app.get('*', (req, res) => {
   res.sendFile(join(staticPath, 'index.html'));
 });
 
