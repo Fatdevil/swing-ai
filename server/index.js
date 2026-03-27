@@ -56,6 +56,71 @@ app.get('/api/engines', (req, res) => {
   });
 });
 
+// ─── AI Coach Chat (Gemini Flash) ───────────────────────────
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, history = [], language = 'sv' } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Missing message' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Gemini API key not configured' });
+    }
+
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
+
+    const langInstruction = language === 'sv'
+      ? 'Svara alltid på svenska. Var kortfattad men hjälpsam.'
+      : 'Always respond in English. Be concise but helpful.';
+
+    const systemPrompt = `Du är SWING AI Coach — en expert inom golf som alltid finns tillgänglig.
+
+## Dina kunskapsområden:
+- Golfteknik (sving, putting, chipping, pitching, bunker)
+- Biomechanik och kroppshållning
+- Regler och etikett
+- Mentalträning och kurshantering
+- Utrustning och passform
+- Träningsövningar och drills
+- Skadeprevention och uppvärmning
+- Handikapp och scoring
+
+## Regler:
+- Ge konkreta, actionerbara svar
+- Använd golftermer men förklara dem
+- Var uppmuntrande och positiv
+- Håll svaren korta (2-3 meningar max, om inte frågan kräver mer)
+- Om någon frågar om sin sving, tipsa om att ladda upp en video för AI-analys
+- ${langInstruction}`;
+
+    // Build chat history for multi-turn
+    const chatHistory = history.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
+
+    const chat = model.startChat({
+      history: chatHistory,
+      systemInstruction: systemPrompt,
+    });
+
+    const result = await chat.sendMessage(message);
+    const reply = result.response.text();
+
+    res.json({ reply });
+
+  } catch (err) {
+    console.error('[chat] Error:', err.message);
+    res.status(500).json({ error: err.message || 'Chat failed' });
+  }
+});
+
 // ─── Full Dual-Engine Analysis ──────────────────────────────
 
 app.post('/api/analyze', async (req, res) => {

@@ -13,6 +13,7 @@ import ChallengesPage from './pages/ChallengesPage';
 import ProgressPage from './pages/ProgressPage';
 import LoginPage from './pages/LoginPage';
 import WelcomeOverlay from './components/WelcomeOverlay';
+import FloatingChat from './components/FloatingChat';
 
 export default function App() {
   const { user, loading, isFirebaseConfigured: hasAuth } = useAuth();
@@ -123,6 +124,7 @@ export default function App() {
       {currentPage !== 'results' && currentPage !== 'balltracker' && (
         <BottomNavBar activePage={currentPage} onNavigate={handleNavigate} />
       )}
+      <FloatingChat />
     </div>
   );
 }
