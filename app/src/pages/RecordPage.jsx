@@ -353,15 +353,15 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
             </h3>
             <p className="text-on-surface-variant text-sm mb-6 max-w-xs">
               {language === 'sv'
-                ? 'Spela in en video av din golfsving eller ladda upp en befintlig video.'
-                : 'Record a video of your golf swing or upload an existing video.'}
+                ? 'Filma din golfsving direkt eller välj en video från galleriet.'
+                : 'Record your golf swing or choose a video from your gallery.'}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
               {/* Record video — label+input for mobile */}
               <label className="kinetic-gradient text-on-primary-fixed font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 active:scale-95 duration-200 cursor-pointer shadow-[0_4px_20px_rgba(157,255,0,0.2)]">
                 <span className="material-symbols-outlined">videocam</span>
-                {language === 'sv' ? 'Spela in' : 'Record'}
+                {language === 'sv' ? 'Filma din sving' : 'Record Swing'}
                 <input
                   type="file"
                   accept="video/*"
@@ -374,7 +374,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
               {/* Upload from gallery */}
               <label className="border border-outline-variant/30 text-on-surface font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:bg-surface-bright transition-colors active:scale-95 cursor-pointer">
                 <span className="material-symbols-outlined">upload</span>
-                {language === 'sv' ? 'Ladda upp video' : 'Upload Video'}
+                {language === 'sv' ? 'Välj från galleri' : 'Choose from Gallery'}
                 <input
                   type="file"
                   accept="video/*"
