@@ -55,17 +55,25 @@ export default function ResultsPage({ data, onBack }) {
         {t('home')}
       </button>
 
-      {/* Dual Engine Badge */}
-      {data._meta?.dualEngine && (
+      {/* Tier Badge */}
+      {data._meta?.tier && (
         <div className="flex items-center justify-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-primary-fixed/10 rounded-full border border-primary-fixed/20">
-            <span className="text-xs">🎬</span>
-            <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Gemini</span>
-            <span className="text-on-surface-variant text-[10px]">+</span>
-            <span className="text-xs">📐</span>
-            <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Claude</span>
-            <span className="text-on-surface-variant/50 text-[8px] ml-1">⚡ DUAL ENGINE</span>
-          </div>
+          {data._meta.tier === 'premium' ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary-fixed/10 rounded-full border border-primary-fixed/20">
+              <span className="text-xs">🎬</span>
+              <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Gemini</span>
+              <span className="text-on-surface-variant text-[10px]">+</span>
+              <span className="text-xs">📐</span>
+              <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-widest">Claude</span>
+              <span className="text-on-surface-variant/50 text-[8px] ml-1">⚡ PREMIUM</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-full border border-outline-variant/20">
+              <span className="text-xs">🎬</span>
+              <span className="text-on-surface text-[10px] font-bold uppercase tracking-widest">Gemini AI</span>
+              <span className="text-on-surface-variant/50 text-[8px] ml-1">BASIC</span>
+            </div>
+          )}
         </div>
       )}
 

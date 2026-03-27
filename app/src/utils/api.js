@@ -41,6 +41,7 @@ export async function analyzeSwing({
   knowledgeBase = '',
   coachingProfile = '',
   coachingHistory = '',
+  tier = 'basic',
 }) {
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -55,6 +56,7 @@ export async function analyzeSwing({
       knowledgeBase,
       coachingProfile,
       coachingHistory,
+      tier,
     }),
   });
 

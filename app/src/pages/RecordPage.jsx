@@ -17,6 +17,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeFrame, setActiveFrame] = useState(0);
   const [guestMode, setGuestMode] = useState(false);
+  const [tier, setTier] = useState('basic'); // 'basic' | 'premium'
 
   const handleFileSelect = useCallback((file) => {
     if (!file) return;
@@ -140,10 +141,14 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     setStep('coaching');
     setError(null);
 
-    // Multi-step progress messages (dual engine)
-    const progressSteps = language === 'sv'
-      ? ['Konverterar video...', '🎬 Gemini analyserar rörelse...', '📐 Claude analyserar positioner...', '🧠 Sammanfattar coaching-rapport...']
-      : ['Converting video...', '🎬 Gemini analyzing motion...', '📐 Claude analyzing positions...', '🧠 Building coaching report...'];
+    // Tier-aware progress messages
+    const progressSteps = tier === 'premium'
+      ? (language === 'sv'
+        ? ['Konverterar video...', '🎬 Gemini analyserar rörelse...', '📐 Claude analyserar positioner...', '🧠 Sammanfattar coaching-rapport...']
+        : ['Converting video...', '🎬 Gemini analyzing motion...', '📐 Claude analyzing positions...', '🧠 Building coaching report...'])
+      : (language === 'sv'
+        ? ['Konverterar video...', '🎬 Gemini analyserar din sving...', '🎬 Bygger coaching-rapport...']
+        : ['Converting video...', '🎬 Gemini analyzing your swing...', '🎬 Building coaching report...']);
 
     setProgress(progressSteps[0]);
     const progressTimer = setInterval(() => {
@@ -199,7 +204,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         } catch { /* optional */ }
       }
 
-      // Call backend API (handles both engines + summarizer)
+      // Call backend API (tier determines which engines run)
       const result = await analyzeSwing({
         video: videoBase64,
         frames: frameData,
@@ -210,6 +215,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         knowledgeBase,
         coachingProfile,
         coachingHistory,
+        tier,
       });
 
       clearInterval(progressTimer);
@@ -538,6 +544,62 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
                   {a.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Tier Selector */}
+          <div className="space-y-3">
+            <p className="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+              {language === 'sv' ? 'Analystyp' : 'Analysis Type'}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Basic */}
+              <button
+                onClick={() => setTier('basic')}
+                className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                  tier === 'basic'
+                    ? 'border-primary-fixed bg-primary-fixed/10'
+                    : 'border-outline-variant/15 bg-surface-container hover:border-outline-variant/30'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🎬</span>
+                  <span className="font-headline font-bold text-sm text-on-surface">
+                    Basic
+                  </span>
+                </div>
+                <p className="text-on-surface-variant text-[10px] leading-tight">
+                  {language === 'sv' ? 'Gemini AI — videoanalys' : 'Gemini AI — video analysis'}
+                </p>
+                {tier === 'basic' && (
+                  <span className="absolute top-2 right-2 material-symbols-filled text-primary-fixed text-sm">check_circle</span>
+                )}
+              </button>
+              {/* Premium */}
+              <button
+                onClick={() => setTier('premium')}
+                className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                  tier === 'premium'
+                    ? 'border-secondary bg-secondary/10'
+                    : 'border-outline-variant/15 bg-surface-container hover:border-outline-variant/30'
+                }`}
+              >
+                <div className="absolute -top-2 right-3 px-2 py-0.5 bg-secondary text-on-secondary text-[8px] font-bold uppercase tracking-widest rounded-full">
+                  PRO
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚡</span>
+                  <span className="font-headline font-bold text-sm text-on-surface">
+                    Premium
+                  </span>
+                </div>
+                <p className="text-on-surface-variant text-[10px] leading-tight">
+                  {language === 'sv' ? 'Dual Engine — Gemini + Claude' : 'Dual Engine — Gemini + Claude'}
+                </p>
+                {tier === 'premium' && (
+                  <span className="absolute top-2 right-2 material-symbols-filled text-secondary text-sm">check_circle</span>
+                )}
+              </button>
             </div>
           </div>
 

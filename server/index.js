@@ -13,7 +13,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { analyzeMotion } from './gemini.js';
+import { analyzeMotion, analyzeFullSwing } from './gemini.js';
 import { analyzePosition, summarizeAnalysis } from './claude.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -72,6 +72,7 @@ app.post('/api/analyze', async (req, res) => {
       knowledgeBase = '',
       coachingProfile = '',
       coachingHistory = '',
+      tier = 'basic', // 'basic' (Gemini only) or 'premium' (Dual Engine)
     } = req.body;
 
     if (!frames || frames.length === 0) {
@@ -81,13 +82,41 @@ app.post('/api/analyze', async (req, res) => {
     const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
     const hasGemini = Boolean(process.env.GEMINI_API_KEY);
 
-    console.log(`[analyze] Start — engines: claude=${hasAnthropic}, gemini=${hasGemini && Boolean(video)}, frames=${frames.length}, angle=${cameraAngle}`);
+    console.log(`[analyze] Start — tier=${tier}, engines: claude=${hasAnthropic}, gemini=${hasGemini && Boolean(video)}, frames=${frames.length}, angle=${cameraAngle}`);
 
     let geminiResult = null;
     let claudeResult = null;
     let usedEngines = [];
 
-    // Run both engines in parallel
+    // ── BASIC TIER: Gemini full analysis only ──
+    if (tier === 'basic') {
+      if (!hasGemini || !video) {
+        return res.status(400).json({ error: 'Basic tier requires Gemini API key and video' });
+      }
+
+      try {
+        geminiResult = await analyzeFullSwing(video, cameraAngle, language, knowledgeBase);
+        usedEngines.push('gemini');
+      } catch (err) {
+        console.error('[Gemini Full] Error:', err.message);
+        return res.status(500).json({ error: 'Gemini analysis failed: ' + err.message });
+      }
+
+      const elapsed = Date.now() - startTime;
+      console.log(`[analyze] Basic done in ${elapsed}ms`);
+
+      return res.json({
+        ...geminiResult,
+        _meta: {
+          tier: 'basic',
+          dualEngine: false,
+          enginesUsed: usedEngines,
+          processingTimeMs: elapsed,
+        },
+      });
+    }
+
+    // ── PREMIUM TIER: Dual Engine (Gemini motion + Claude position → Summarizer) ──
     const promises = [];
 
     if (hasGemini && video) {
@@ -131,7 +160,6 @@ app.post('/api/analyze', async (req, res) => {
         dualEngine = true;
       } catch (err) {
         console.error('[Summarizer] Error:', err.message);
-        // Fallback: use Claude result enriched with Gemini data
         finalResult = {
           ...claudeResult,
           motionAnalysis: geminiResult,
@@ -141,11 +169,11 @@ app.post('/api/analyze', async (req, res) => {
         dualEngine = true;
       }
     }
-    // Single engine: only Claude
+    // Single engine fallback: only Claude
     else if (claudeResult) {
       finalResult = claudeResult;
     }
-    // Single engine: only Gemini (very limited — no position data)
+    // Single engine fallback: only Gemini (shouldn't happen in premium, but just in case)
     else if (geminiResult) {
       finalResult = {
         totalScore: geminiResult.overallMotionGrade || 50,
@@ -162,6 +190,7 @@ app.post('/api/analyze', async (req, res) => {
     res.json({
       ...finalResult,
       _meta: {
+        tier: 'premium',
         dualEngine,
         enginesUsed: usedEngines,
         processingTimeMs: elapsed,
