@@ -188,22 +188,28 @@ export default function ProfilePage() {
           <h3 className="font-headline font-bold">{t('clearHistory')}</h3>
         </div>
         {showClearConfirm ? (
-          <div className="flex gap-3">
-            <button
-              onClick={handleClearHistory}
-              className="flex-1 bg-error text-on-error font-bold py-3 px-6 rounded-full active:scale-95 transition-all"
-            >
-              {t('clearHistoryConfirm')}
-            </button>
-            <button
-              onClick={() => setShowClearConfirm(false)}
-              className="border border-outline-variant/30 text-on-surface font-bold py-3 px-6 rounded-full"
-            >
-              ✕
-            </button>
+          <div className="space-y-4">
+             <div className="p-4 bg-error/10 border border-error/20 rounded-lg text-sm text-error">
+                <p className="font-bold mb-1">⚠️ {sv ? 'Är du helt säker?' : 'Are you completely sure?'}</p>
+                <p className="opacity-90">{sv ? 'Detta kommer att permanent radera alla dina sparade videos, analyser och din prestations-statistik. Det går inte att ångra.' : 'This will permanently delete all your saved videos, analyses, and performance stats. This cannot be undone.'}</p>
+             </div>
+             <div className="flex gap-3">
+               <button
+                 onClick={handleClearHistory}
+                 className="flex-1 bg-error text-on-error font-bold py-3 px-6 rounded-full active:scale-95 transition-all text-sm"
+               >
+                 {t('clearHistoryConfirm')}
+               </button>
+               <button
+                 onClick={() => setShowClearConfirm(false)}
+                 className="flex-1 bg-surface-container-high border border-outline-variant/30 text-on-surface font-bold py-3 px-6 rounded-full hover:bg-surface-bright text-sm"
+               >
+                 {sv ? 'Avbryt' : 'Cancel'}
+               </button>
+             </div>
           </div>
         ) : cleared ? (
-          <div className="py-3 text-center text-primary-fixed font-bold text-sm">✓ Cleared</div>
+          <div className="py-3 text-center text-primary-fixed font-bold text-sm">✓ {sv ? 'Alla analyser raderade' : 'All analyses deleted'}</div>
         ) : (
           <button
             onClick={() => setShowClearConfirm(true)}

@@ -74,8 +74,8 @@ export const translations = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyHelp: 'Required for AI coaching. Your key is stored locally only.',
     language: 'Language',
-    clearHistory: 'Clear History',
-    clearHistoryConfirm: 'Delete all saved analyses?',
+    clearHistory: 'Delete All Swing Analyses',
+    clearHistoryConfirm: 'Yes, delete all!',
     appVersion: 'Version',
 
     // Measurements
@@ -177,8 +177,8 @@ export const translations = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyHelp: 'Krävs för AI-coaching. Din nyckel lagras endast lokalt.',
     language: 'Språk',
-    clearHistory: 'Rensa historik',
-    clearHistoryConfirm: 'Ta bort alla sparade analyser?',
+    clearHistory: 'Radera alla sving-analyser',
+    clearHistoryConfirm: 'Ja, radera alla svingar!',
     appVersion: 'Version',
 
     // Measurements
