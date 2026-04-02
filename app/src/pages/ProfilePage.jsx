@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
-import { clearHistory, getSetting, setSetting, getHistory } from '../utils/storage';
+import { clearHistory, getHistory } from '../utils/storage';
 
 export default function ProfilePage() {
   const { t, language, setLanguage } = useLanguage();
   const sv = language === 'sv';
   const { user, logout } = useAuth();
-  const [apiKey, setApiKey] = useState(''); // legacy, not used
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [stats, setStats] = useState(null);
@@ -30,12 +29,6 @@ export default function ProfilePage() {
     // Check engine status
     fetch('/api/engines').then(r => r.json()).then(setEngines).catch(() => {});
   }, [cleared]);
-
-  const handleApiKeyChange = (e) => {
-    const key = e.target.value;
-    setApiKey(key);
-    setSetting('anthropic_key', key);
-  };
 
   const handleClearHistory = async () => {
     await clearHistory();

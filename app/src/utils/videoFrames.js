@@ -162,8 +162,6 @@ function analyzeMotionRegion(ctx, width, height) {
   }
 }
 
-// Store previous frame data for inter-frame motion
-let prevFrameData = null;
 
 /**
  * Detect swing phases from motion curve

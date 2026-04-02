@@ -10,11 +10,21 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const AI_TIMEOUT_MS = 90_000; // 90 seconds max per AI call
+
 function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
   const genAI = new GoogleGenerativeAI(apiKey);
   return genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+}
+
+/** Race an async operation against a timeout */
+function withTimeout(promise, ms = AI_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`AI call timed out after ${ms / 1000}s`)), ms)),
+  ]);
 }
 
 /**
@@ -104,10 +114,10 @@ Valid JSON only — no markdown, no code fences:
 - Focus ONLY on what video reveals that still images cannot
 - ${langInstruction}`;
 
-  const result = await model.generateContent([
+  const result = await withTimeout(model.generateContent([
     { inlineData: { mimeType: 'video/mp4', data: cleanBase64(videoBase64) } },
     { text: prompt },
-  ]);
+  ]));
 
   return parseJSON(result.response.text());
 }
@@ -215,10 +225,10 @@ Valid JSON only — no markdown, no code fences:
 - Be specific — reference what you see in the video
 - ${langInstruction}`;
 
-  const result = await model.generateContent([
+  const result = await withTimeout(model.generateContent([
     { inlineData: { mimeType: 'video/mp4', data: cleanBase64(videoBase64) } },
     { text: prompt },
-  ]);
+  ]));
 
   return parseJSON(result.response.text());
 }

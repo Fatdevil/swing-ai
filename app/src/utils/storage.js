@@ -32,7 +32,7 @@ export async function saveAnalysis(analysis) {
 
   await db.add(STORE_NAME, entry);
 
-  // FIFO eviction — keep max 20
+  // FIFO eviction — keep max 50
   const count = await db.count(STORE_NAME);
   if (count > MAX_ANALYSES) {
     const tx = db.transaction(STORE_NAME, 'readwrite');

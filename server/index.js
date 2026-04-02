@@ -11,6 +11,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { analyzeMotion, analyzeFullSwing } from './gemini.js';
@@ -22,9 +23,30 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// ─── Middleware ──────────────────────────────────────────────
 app.use(cors());
-app.use(express.json({ limit: '100mb' }));  // Large limit for video + frames
+app.use(express.json({ limit: '25mb' })); // Enough for video + frames, prevents RAM abuse
+
+// Rate limiting — prevents API key abuse
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 30,              // 30 requests per minute for general API
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — try again in a minute' },
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 5,               // 5 AI analysis requests per minute (expensive)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many analysis requests — please wait before trying again' },
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/analyze', aiLimiter);
+app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 15, message: { error: 'Chat rate limit reached' } }));
 
 // Serve static Vite build
 const staticPath = join(__dirname, '..', 'app', 'dist');

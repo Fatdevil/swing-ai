@@ -17,7 +17,7 @@ const __dirname = dirname(__filename);
 function getClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
-  return new Anthropic({ apiKey });
+  return new Anthropic({ apiKey, timeout: 90_000 }); // 90s timeout
 }
 
 // ─── POSITION ANALYSIS (frame-by-frame) ─────────────────────────
