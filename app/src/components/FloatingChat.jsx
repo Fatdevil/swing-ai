@@ -75,8 +75,8 @@ export default function FloatingChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-surface-container border-b border-outline-variant/10">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary-fixed/15 flex items-center justify-center">
-                <span className="text-sm">🏌️</span>
+              <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-on-primary-fixed shadow-[0_0_10px_rgba(157,255,0,0.3)]">
+                <span className="material-symbols-filled text-base">psychology</span>
               </div>
               <div>
                 <h4 className="font-headline font-bold text-xs text-on-surface">SWING AI Coach</h4>
@@ -169,16 +169,19 @@ export default function FloatingChat() {
       {/* FAB Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-[5.5rem] right-4 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
+        className={`fixed bottom-[5.5rem] right-4 z-50 h-14 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
           isOpen
-            ? 'bg-surface-container-high border border-outline-variant/20 rotate-0'
-            : 'kinetic-gradient shadow-[0_4px_20px_rgba(157,255,0,0.3)]'
+            ? 'w-14 bg-surface-container-high border border-outline-variant/20 rotate-0'
+            : 'px-5 kinetic-gradient shadow-[0_4px_20px_rgba(157,255,0,0.3)] hover:scale-105'
         }`}
       >
         {isOpen ? (
           <span className="material-symbols-outlined text-on-surface text-xl">close</span>
         ) : (
-          <span className="text-2xl">🏌️</span>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-filled text-on-primary-fixed text-xl">psychology</span>
+            <span className="text-on-primary-fixed font-headline font-extrabold text-sm tracking-widest uppercase">Coach</span>
+          </div>
         )}
         {/* Notification dot */}
         {!isOpen && messages.length === 0 && (
