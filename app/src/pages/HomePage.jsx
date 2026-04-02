@@ -156,85 +156,82 @@ export default function HomePage({ onNavigate, onViewAnalysis }) {
         </div>
       </section>
 
-      {/* Coach Mode — Premium CTA */}
-      <section>
+      {/* Bento Grid Features */}
+      <section className="flex flex-col gap-4">
+        {/* Coach Mode - Full Width Premium */}
         <button
           onClick={() => onNavigate('coach')}
-          className="w-full group relative bg-surface-container-low rounded-lg p-6 border border-outline-variant/10 hover:border-primary-fixed/20 transition-all text-left overflow-hidden"
+          className="w-full group relative bg-surface-container rounded-[1.5rem] p-6 border border-primary-fixed/20 hover:border-primary-fixed transition-all text-left overflow-hidden shadow-[0_8px_32px_-12px_rgba(157,255,0,0.1)] active:scale-[0.98]"
         >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-primary-fixed/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-primary-fixed/10 transition-colors" />
-          <div className="flex items-center gap-4 relative">
-            <div className="bg-primary-fixed/10 p-3 rounded-full">
-              <span className="material-symbols-filled text-primary-fixed text-2xl">psychology</span>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary-fixed/10 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-primary-fixed/20 transition-colors duration-500" />
+          <div className="absolute bottom-4 right-4 opacity-10 group-hover:opacity-30 group-hover:scale-125 transition-all duration-500">
+            <span className="material-symbols-filled text-6xl text-primary-fixed">psychology</span>
+          </div>
+          <div className="flex flex-col relative z-10 w-3/4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-black px-2 py-0.5 rounded-full" style={{ background: 'linear-gradient(135deg, #FFD700, #FFA500)' }}>
+                PREMIUM
+              </span>
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-headline text-lg font-bold text-on-surface">
-                  {t('coachMode') || (language === 'sv' ? 'Coach-läge' : 'Coach Mode')}
-                </h3>
-                <span className="text-[9px] font-black bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full">PREMIUM</span>
+            <h3 className="font-headline text-2xl font-bold text-on-surface leading-tight mb-2">
+              {t('coachMode') || (language === 'sv' ? 'Coach-läge' : 'Coach Mode')}
+            </h3>
+            <p className="text-on-surface-variant text-sm pr-4">
+              {language === 'sv'
+                ? 'Personlig AI-coach som skräddarsyr din utveckling'
+                : 'Personal AI coach tailoring your development'}
+            </p>
+          </div>
+        </button>
+
+        {/* Squircle Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Progress */}
+          <button
+            onClick={() => onNavigate('progress')}
+            className="w-full group relative bg-surface-container rounded-[1.5rem] p-5 border border-outline-variant/10 hover:border-blue-500/50 transition-all text-left overflow-hidden active:scale-[0.98]"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-blue-500/20 transition-colors duration-500" />
+            <div className="flex flex-col h-full justify-between relative z-10 min-h-[120px]">
+              <div className="bg-blue-500/10 border border-blue-500/20 w-fit p-3 rounded-xl text-blue-400 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                <span className="material-symbols-filled text-2xl leading-none block">query_stats</span>
               </div>
-              <p className="text-on-surface-variant text-xs mt-1">
-                {language === 'sv'
-                  ? 'Personlig AI-coach som anpassar sin coaching efter dina mål'
-                  : 'Personal AI coach that adapts coaching to your goals'}
-              </p>
+              <div className="mt-4">
+                <h3 className="font-headline text-lg font-bold text-on-surface mb-1">
+                  {language === 'sv' ? 'Milstolpar' : 'Progress'}
+                </h3>
+                <p className="text-on-surface-variant text-[11px] leading-tight opacity-80 group-hover:opacity-100 transition-opacity">
+                  {language === 'sv'
+                    ? 'Se din utveckling och trender'
+                    : 'View trends and milestones'}
+                </p>
+              </div>
             </div>
-            <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary-fixed transition-colors">arrow_forward</span>
-          </div>
-        </button>
-      </section>
+          </button>
 
-      {/* Progress Dashboard */}
-      <section>
-        <button
-          onClick={() => onNavigate('progress')}
-          className="w-full group relative bg-surface-container-low rounded-lg p-6 border border-outline-variant/10 hover:border-primary-fixed/20 transition-all text-left overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-blue-500/10 transition-colors" />
-          <div className="flex items-center gap-4 relative">
-            <div className="bg-blue-500/10 p-3 rounded-full">
-              <span className="material-symbols-filled text-blue-400 text-2xl">query_stats</span>
+          {/* Challenges */}
+          <button
+            onClick={() => onNavigate('challenges')}
+            className="w-full group relative bg-surface-container rounded-[1.5rem] p-5 border border-outline-variant/10 hover:border-amber-400/50 transition-all text-left overflow-hidden active:scale-[0.98]"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-amber-400/20 transition-colors duration-500" />
+            <div className="flex flex-col h-full justify-between relative z-10 min-h-[120px]">
+              <div className="bg-amber-400/10 border border-amber-400/20 w-fit p-3 rounded-xl text-amber-400 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300">
+                <span className="material-symbols-filled text-2xl leading-none block">emoji_events</span>
+              </div>
+              <div className="mt-4">
+                <h3 className="font-headline text-lg font-bold text-on-surface mb-1">
+                  {language === 'sv' ? 'Utmaningar' : 'Challenges'}
+                </h3>
+                <p className="text-on-surface-variant text-[11px] leading-tight opacity-80 group-hover:opacity-100 transition-opacity">
+                  {language === 'sv'
+                    ? 'Tävla mot tour-proffsen'
+                    : 'Compete against the pros'}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-headline text-lg font-bold text-on-surface">
-                {language === 'sv' ? 'Progress' : 'Progress'}
-              </h3>
-              <p className="text-on-surface-variant text-xs mt-1">
-                {language === 'sv'
-                  ? 'Se din utveckling, trender och milstolpar'
-                  : 'View your trends, milestones, and improvement'}
-              </p>
-            </div>
-            <span className="material-symbols-outlined text-on-surface-variant group-hover:text-blue-400 transition-colors">arrow_forward</span>
-          </div>
-        </button>
-      </section>
-
-      {/* Challenges CTA */}
-      <section>
-        <button
-          onClick={() => onNavigate('challenges')}
-          className="w-full text-left bg-surface-container rounded-lg p-5 border border-outline-variant/10 hover:border-primary-fixed/20 transition-all group active:scale-[0.99] relative overflow-hidden"
-        >
-          <div className="absolute inset-0 opacity-5" style={{ background: 'radial-gradient(circle at 90% 30%, #FACC15 0%, transparent 50%)' }} />
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="bg-amber-400/10 p-3 rounded-full">
-              <span className="material-symbols-outlined text-amber-400 text-2xl">emoji_events</span>
-            </div>
-            <div className="flex-1">
-              <h3 className="font-headline text-lg font-bold text-on-surface">
-                {language === 'sv' ? 'Utmaningar' : 'Challenges'}
-              </h3>
-              <p className="text-on-surface-variant text-xs mt-1">
-                {language === 'sv'
-                  ? 'Kan du svinga som Tiger Woods? Tävla mot proffsen!'
-                  : 'Can you swing like Tiger Woods? Compete against the pros!'}
-              </p>
-            </div>
-            <span className="material-symbols-outlined text-on-surface-variant group-hover:text-amber-400 transition-colors">arrow_forward</span>
-          </div>
-        </button>
+          </button>
+        </div>
       </section>
 
       {/* Recent Swings */}
