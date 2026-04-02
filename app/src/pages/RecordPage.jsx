@@ -395,28 +395,28 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
           )}
 
           {/* Ball Tracker Mode */}
-          <button
-            onClick={() => onNavigate?.('balltracker')}
-            className="w-full group relative bg-surface-container-low rounded-lg p-5 border border-outline-variant/10 hover:border-primary-fixed/20 transition-all text-left overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/5 rounded-full blur-3xl -mr-8 -mt-8 group-hover:bg-primary-fixed/10 transition-colors" />
-            <div className="flex items-center gap-4 relative">
-              <div className="bg-primary-fixed/10 p-2.5 rounded-full">
-                <span className="material-symbols-filled text-primary-fixed text-xl">flight</span>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-headline font-bold text-on-surface text-sm">
-                  {language === 'sv' ? 'Ball Tracker' : 'Ball Tracker'}
-                </h4>
-                <p className="text-on-surface-variant text-xs">
-                  {language === 'sv'
-                    ? 'Spåra bollens flygbana med neon-spårlinje'
-                    : 'Track ball flight with neon trail line'}
-                </p>
-              </div>
-              <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary-fixed transition-colors">arrow_forward</span>
+          <div className="relative rounded-lg border-2 border-dashed border-outline-variant/30 bg-surface-container p-12 flex flex-col items-center justify-center text-center transition-all hover:border-primary-fixed/50 group mt-4">
+            <div className="bg-primary-fixed/10 p-6 rounded-full mb-6 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-primary-fixed text-5xl">flight</span>
             </div>
-          </button>
+
+            <h3 className="font-headline text-xl font-bold mb-2">
+              {language === 'sv' ? 'Ball Tracker' : 'Ball Tracker'}
+            </h3>
+            <p className="text-on-surface-variant text-sm mb-6 max-w-xs">
+              {language === 'sv'
+                ? 'Spåra bollens flygbana med en neon-spårlinje. Spela in slaget bakifrån (Down the line).'
+                : 'Track ball flight with a neon trail line. Record the shot from behind (Down the line).'}
+            </p>
+
+            <button
+              onClick={() => onNavigate?.('balltracker')}
+              className="border border-primary-fixed text-primary-fixed hover:bg-primary-fixed hover:text-on-primary-fixed font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 active:scale-95 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined">motion_sensor_active</span>
+              {language === 'sv' ? 'Starta Ball Tracker' : 'Start Ball Tracker'}
+            </button>
+          </div>
         </div>
       )}
 

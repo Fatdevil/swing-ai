@@ -335,34 +335,7 @@ Rules:
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {approachEntries.map(([id, approach]) => {
               const icon = APPROACH_ICONS[id] || 'psychology';
-              const isWide = id === 'distance';
 
-              if (isWide) {
-                return (
-                  <button
-                    key={id}
-                    onClick={() => handleApproachSelect(id)}
-                    className="flex text-left p-6 rounded-lg bg-surface-container-low border border-white/5 hover:bg-surface-container transition-all active:scale-[0.98] kinetic-gradient-border lg:col-span-2 group relative overflow-hidden"
-                  >
-                    <div className="flex items-center gap-6 w-full">
-                      <div className="p-4 bg-primary-fixed/10 rounded-full shrink-0">
-                        <span className="material-symbols-outlined text-primary-fixed text-4xl">{icon}</span>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-headline text-xl font-bold mb-2 uppercase tracking-tight text-on-surface">
-                          {approach.name[language]}
-                        </h3>
-                        <p className="text-on-surface-variant text-sm leading-relaxed max-w-md">
-                          {approach.description[language]}
-                        </p>
-                      </div>
-                      <div className="ml-auto">
-                        <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary-fixed transition-colors">arrow_forward</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              }
 
               return (
                 <button
