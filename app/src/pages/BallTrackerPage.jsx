@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
-import { detectBallFlight, interpolateTrajectory, drawBallTrail } from '../utils/ballTracker';
+import { detectBallFlight, interpolateTrajectory, drawBallTrail, getCameraOffset } from '../utils/ballTracker';
 
 /**
  * BallTrackerPage — Record/upload video → detect ball flight → animated replay with trail
@@ -116,7 +116,10 @@ export default function BallTrackerPage({ onBack }) {
             trailIdx = i;
           }
         }
-        drawBallTrail(ctx, trackData.trajectory, trailIdx, canvas.width, canvas.height);
+
+        // Get the camera offset for the current frame so the trail stays pinned
+        const offset = getCameraOffset(trackData.motionOffsets, currentTime);
+        drawBallTrail(ctx, trackData.trajectory, trailIdx, canvas.width, canvas.height, offset);
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -149,13 +152,15 @@ export default function BallTrackerPage({ onBack }) {
       canvas.height = trackData.height;
 
       video.onloadeddata = () => {
-        video.currentTime = trackData.trajectory.length > 0
+        const lastTime = trackData.trajectory.length > 0
           ? trackData.trajectory[trackData.trajectory.length - 1].time
           : 0;
+        video.currentTime = lastTime;
         video.onseeked = () => {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           if (trackData.trajectory.length >= 2) {
-            drawBallTrail(ctx, trackData.trajectory, trackData.trajectory.length - 1, canvas.width, canvas.height);
+            const offset = getCameraOffset(trackData.motionOffsets, lastTime);
+            drawBallTrail(ctx, trackData.trajectory, trackData.trajectory.length - 1, canvas.width, canvas.height, offset);
           }
         };
       };
@@ -204,7 +209,7 @@ export default function BallTrackerPage({ onBack }) {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary-fixed mt-0.5">•</span>
-                {t('Håll kameran stilla (stativ rekommenderas)', 'Keep camera steady (tripod recommended)')}
+                {t('Du kan följa bollen med kameran — linjen stannar kvar!', 'You can follow the ball with the camera — the trail stays put!')}
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary-fixed mt-0.5">•</span>
