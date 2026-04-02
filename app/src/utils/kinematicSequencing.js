@@ -21,8 +21,36 @@
  * @returns {Object} { segments, sequenceOrder, isCorrect, grade, peakTimings }
  */
 export function analyzeSequencing(frameResults) {
-  const validFrames = frameResults.filter(f => f.landmarks && f.landmarks.length >= 33);
+  // Prefer worldLandmarks (3D) if available, fall back to 2D landmarks
+  const validFrames = frameResults.filter(f => {
+    const lm = f.worldLandmarks || f.landmarks;
+    return lm && lm.length >= 33;
+  });
   if (validFrames.length < 4) return null;
+
+  // Helper to get best available landmarks
+  const getLM = (f) => f.worldLandmarks || f.landmarks;
+
+  // === Temporal Smoothing ===
+  // Apply 3-frame weighted average to landmark positions before velocity calculation
+  // This dramatically reduces jitter in angular velocity curves
+  const smoothedFrames = validFrames.map((frame, i) => {
+    const lm = getLM(frame);
+    if (i === 0 || i === validFrames.length - 1) return { ...frame, _smoothedLM: lm };
+
+    const prev = getLM(validFrames[i - 1]);
+    const next = getLM(validFrames[i + 1]);
+
+    // Weighted average: 0.25 * prev + 0.5 * current + 0.25 * next
+    const smoothed = lm.map((point, j) => ({
+      x: prev[j].x * 0.25 + point.x * 0.5 + next[j].x * 0.25,
+      y: prev[j].y * 0.25 + point.y * 0.5 + next[j].y * 0.25,
+      z: ((prev[j].z || 0) * 0.25 + (point.z || 0) * 0.5 + (next[j].z || 0) * 0.25),
+      visibility: point.visibility,
+    }));
+
+    return { ...frame, _smoothedLM: smoothed };
+  });
 
   // Calculate angular velocities per frame for each segment
   const hipVelocities = [];
@@ -31,9 +59,9 @@ export function analyzeSequencing(frameResults) {
   const handVelocities = [];
   const timestamps = [];
 
-  for (let i = 1; i < validFrames.length; i++) {
-    const prev = validFrames[i - 1].landmarks;
-    const curr = validFrames[i].landmarks;
+  for (let i = 1; i < smoothedFrames.length; i++) {
+    const prev = smoothedFrames[i - 1]._smoothedLM;
+    const curr = smoothedFrames[i]._smoothedLM;
     let dt = (validFrames[i].timestamp - validFrames[i - 1].timestamp) || 0.033;
     // Handle millisecond timestamps (> 1000 means ms)
     if (dt > 1000) dt = dt / 1000;
@@ -42,27 +70,27 @@ export function analyzeSequencing(frameResults) {
 
     timestamps.push(validFrames[i].timestamp);
 
-    // 1. HIP angular velocity (rotation of hip line)
-    const hipAnglePrev = lineAngle(prev[23], prev[24]);
-    const hipAngleCurr = lineAngle(curr[23], curr[24]);
+    // 1. HIP angular velocity (rotation of hip line) — uses Z for 3D rotation
+    const hipAnglePrev = lineAngle3D(prev[23], prev[24]);
+    const hipAngleCurr = lineAngle3D(curr[23], curr[24]);
     hipVelocities.push(Math.abs(hipAngleCurr - hipAnglePrev) / dt);
 
     // 2. TORSO angular velocity (shoulder line relative to hip line)
-    const shoulderAnglePrev = lineAngle(prev[11], prev[12]);
-    const shoulderAngleCurr = lineAngle(curr[11], curr[12]);
+    const shoulderAnglePrev = lineAngle3D(prev[11], prev[12]);
+    const shoulderAngleCurr = lineAngle3D(curr[11], curr[12]);
     const torsoRotPrev = shoulderAnglePrev - hipAnglePrev;
     const torsoRotCurr = shoulderAngleCurr - hipAngleCurr;
     torsoVelocities.push(Math.abs(torsoRotCurr - torsoRotPrev) / dt);
 
-    // 3. ARM velocity (elbow + wrist position change rate)
-    const armSpeedPrev = segmentSpeed(prev[13], prev[14], prev[15], prev[16]);
-    const armSpeedCurr = segmentSpeed(curr[13], curr[14], curr[15], curr[16]);
+    // 3. ARM velocity (elbow + wrist position change rate) — includes Z
+    const armSpeedPrev = segmentSpeed3D(prev[13], prev[14], prev[15], prev[16]);
+    const armSpeedCurr = segmentSpeed3D(curr[13], curr[14], curr[15], curr[16]);
     armVelocities.push((armSpeedPrev + armSpeedCurr) / 2 / dt);
 
-    // 4. HAND/CLUB velocity (wrist position change — proxy for club head speed)
+    // 4. HAND/CLUB velocity (wrist position change — proxy for club head speed) — includes Z
     const handSpeed = Math.sqrt(
-      (curr[15].x - prev[15].x) ** 2 + (curr[15].y - prev[15].y) ** 2 +
-      (curr[16].x - prev[16].x) ** 2 + (curr[16].y - prev[16].y) ** 2
+      (curr[15].x - prev[15].x) ** 2 + (curr[15].y - prev[15].y) ** 2 + ((curr[15].z || 0) - (prev[15].z || 0)) ** 2 +
+      (curr[16].x - prev[16].x) ** 2 + (curr[16].y - prev[16].y) ** 2 + ((curr[16].z || 0) - (prev[16].z || 0)) ** 2
     ) / 2;
     handVelocities.push(handSpeed / dt);
   }
@@ -168,15 +196,22 @@ export function buildSequencingPrompt(sequencing, language) {
 
 // ===== Helpers =====
 
-function lineAngle(a, b) {
-  return Math.atan2(b.y - a.y, b.x - a.x) * (180 / Math.PI);
+function lineAngle3D(a, b) {
+  // If Z data is available, use atan2(dz, dx) for horizontal-plane rotation
+  const dx = b.x - a.x;
+  const dz = (b.z || 0) - (a.z || 0);
+  if (dz !== 0) {
+    return Math.atan2(dz, dx) * (180 / Math.PI);
+  }
+  // Fallback to 2D
+  return Math.atan2(b.y - a.y, dx) * (180 / Math.PI);
 }
 
-function segmentSpeed(lElbow, rElbow, lWrist, rWrist) {
-  // Average displacement of arm segment endpoints
+function segmentSpeed3D(lElbow, rElbow, lWrist, rWrist) {
+  // Average displacement of arm segment endpoints — includes Z axis
   return (
-    Math.sqrt((lElbow.x - lWrist.x) ** 2 + (lElbow.y - lWrist.y) ** 2) +
-    Math.sqrt((rElbow.x - rWrist.x) ** 2 + (rElbow.y - rWrist.y) ** 2)
+    Math.sqrt((lElbow.x - lWrist.x) ** 2 + (lElbow.y - lWrist.y) ** 2 + ((lElbow.z || 0) - (lWrist.z || 0)) ** 2) +
+    Math.sqrt((rElbow.x - rWrist.x) ** 2 + (rElbow.y - rWrist.y) ** 2 + ((rElbow.z || 0) - (rWrist.z || 0)) ** 2)
   ) / 2;
 }
 

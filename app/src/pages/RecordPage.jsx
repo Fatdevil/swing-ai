@@ -75,22 +75,28 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         img.src = frames[i].base64;
         await new Promise((resolve) => { img.onload = resolve; });
 
-        const landmarks = await analyzePose(img);
-        const measurements = landmarks ? calculateAllAngles(landmarks) : null;
+        // analyzePose now returns { landmarks (2D), worldLandmarks (3D) } or null
+        const poseResult = await analyzePose(img);
+        const landmarks2D = poseResult?.landmarks || null;         // For drawing
+        const worldLandmarks = poseResult?.worldLandmarks || null;  // For 3D angle math
 
-        // Draw skeleton + annotation overlay on frame
+        // Use worldLandmarks for accurate angle calculations, fall back to 2D
+        const angleInput = worldLandmarks || landmarks2D;
+        const measurements = angleInput ? calculateAllAngles(angleInput) : null;
+
+        // Draw skeleton + annotation overlay on frame (always use 2D landmarks for screen-space drawing)
         let overlayBase64 = null;
-        if (landmarks) {
+        if (landmarks2D) {
           const { drawAnnotations } = await import('../utils/swingAnnotations.js');
           const canvas = document.createElement('canvas');
           canvas.width = frames[i].width;
           canvas.height = frames[i].height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          drawSkeleton(ctx, landmarks, canvas.width, canvas.height);
+          drawSkeleton(ctx, landmarks2D, canvas.width, canvas.height);
           if (measurements) {
             const phase = frames[i].phase || getPhaseLabel(i, 'en');
-            drawAnnotations(ctx, landmarks, measurements, canvas.width, canvas.height, phase);
+            drawAnnotations(ctx, landmarks2D, measurements, canvas.width, canvas.height, phase);
           }
           overlayBase64 = canvas.toDataURL('image/jpeg', 0.85);
         }
@@ -100,7 +106,8 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
           phase: frames[i].phase || getPhaseLabel(i, 'en'),
           phaseSv: getPhaseLabel(i, 'sv'),
           phaseConfidence: frames[i].phaseConfidence || null,
-          landmarks,
+          landmarks: landmarks2D,           // 2D — for display and legacy compat
+          worldLandmarks: worldLandmarks,   // 3D — for sequencing and AI prompts
           measurements,
           overlayBase64,
           originalBase64: frames[i].base64,

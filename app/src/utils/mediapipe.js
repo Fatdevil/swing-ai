@@ -1,70 +1,87 @@
 /**
- * MediaPipe Pose integration
- * Loads MediaPipe via CDN and provides pose detection + skeleton drawing
+ * MediaPipe Pose Landmarker — Modern Tasks-Vision SDK
+ * =====================================================
+ * Uses @mediapipe/tasks-vision PoseLandmarker for true 3D pose detection.
+ *
+ * Returns BOTH:
+ * - landmarks (2D normalized) → for drawing skeletons on screen
+ * - worldLandmarks (3D meters, origin at hip center) → for angle calculations
+ * - visibility per landmark → for confidence gating
  */
 
-let poseInstance = null;
+import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+
+let poseLandmarker = null;
+
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task';
 
 /**
- * Load MediaPipe Pose model (lazy, cached)
+ * Load PoseLandmarker (lazy, cached)
  */
-async function loadPose() {
-  if (poseInstance) return poseInstance;
+async function loadPoseLandmarker() {
+  if (poseLandmarker) return poseLandmarker;
 
-  // Dynamically load MediaPipe scripts from CDN
-  await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js');
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+  );
 
-  const Pose = window.Pose;
-  if (!Pose) throw new Error('MediaPipe Pose not available');
-
-  poseInstance = new Pose({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
-  });
-
-  poseInstance.setOptions({
-    modelComplexity: 1, // 0=lite, 1=full, 2=heavy
-    smoothLandmarks: false,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.5,
+  poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: MODEL_URL,
+      delegate: 'GPU', // Use GPU if available, falls back to CPU
+    },
+    runningMode: 'IMAGE',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5,
   });
 
-  await poseInstance.initialize();
-  return poseInstance;
+  return poseLandmarker;
 }
 
 /**
  * Analyze pose from an image element
  * @param {HTMLImageElement} imgElement
- * @returns {Array|null} 33 landmarks or null if detection fails
+ * @returns {{ landmarks: Array, worldLandmarks: Array } | null}
+ *   - landmarks: 33 points, normalized (x,y) + z + visibility — for 2D drawing
+ *   - worldLandmarks: 33 points, real-world 3D meters (x,y,z) + visibility — for angle math
  */
 export async function analyzePose(imgElement) {
   try {
-    const pose = await loadPose();
+    const landmarker = await loadPoseLandmarker();
+    const result = landmarker.detect(imgElement);
 
-    return new Promise((resolve) => {
-      pose.onResults((results) => {
-        if (results.poseLandmarks && results.poseLandmarks.length > 0) {
-          resolve(results.poseLandmarks);
-        } else {
-          resolve(null);
-        }
-      });
+    if (result.landmarks && result.landmarks.length > 0 && result.worldLandmarks && result.worldLandmarks.length > 0) {
+      return {
+        landmarks: result.landmarks[0],       // 2D normalized — for drawing
+        worldLandmarks: result.worldLandmarks[0], // 3D meters — for angles
+      };
+    }
 
-      pose.send({ image: imgElement });
-    });
+    // Fallback: if worldLandmarks not available, return landmarks only
+    if (result.landmarks && result.landmarks.length > 0) {
+      return {
+        landmarks: result.landmarks[0],
+        worldLandmarks: null,
+      };
+    }
+
+    return null;
   } catch (err) {
-    console.warn('MediaPipe pose detection failed:', err);
+    console.warn('MediaPipe PoseLandmarker detection failed:', err);
     return null;
   }
 }
 
 /**
  * Draw skeleton overlay on a canvas context
+ * Uses 2D normalized landmarks for screen-space drawing.
  * Design: green lines (#9DFF00), yellow joint dots
  */
 export function drawSkeleton(ctx, landmarks, width, height) {
-  if (!landmarks) return;
+  // Accept both old format (array) and new format ({ landmarks, worldLandmarks })
+  const lm = Array.isArray(landmarks) ? landmarks : landmarks?.landmarks || landmarks;
+  if (!lm || lm.length < 33) return;
 
   const GREEN = '#9DFF00';
   const YELLOW = '#FFE135';
@@ -97,10 +114,10 @@ export function drawSkeleton(ctx, landmarks, width, height) {
   ctx.lineCap = 'round';
 
   connections.forEach(([a, b]) => {
-    if (landmarks[a] && landmarks[b]) {
+    if (lm[a] && lm[b]) {
       ctx.beginPath();
-      ctx.moveTo(landmarks[a].x * width, landmarks[a].y * height);
-      ctx.lineTo(landmarks[b].x * width, landmarks[b].y * height);
+      ctx.moveTo(lm[a].x * width, lm[a].y * height);
+      ctx.lineTo(lm[b].x * width, lm[b].y * height);
       ctx.stroke();
     }
   });
@@ -109,34 +126,23 @@ export function drawSkeleton(ctx, landmarks, width, height) {
   ctx.shadowBlur = 0;
   const keyJoints = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28];
   keyJoints.forEach((i) => {
-    if (landmarks[i]) {
+    if (lm[i]) {
+      // Dim joints with low visibility
+      const vis = lm[i].visibility ?? 1;
+      const alpha = Math.max(0.3, vis);
+
       ctx.fillStyle = YELLOW;
+      ctx.globalAlpha = alpha;
       ctx.beginPath();
-      ctx.arc(landmarks[i].x * width, landmarks[i].y * height, JOINT_RADIUS, 0, Math.PI * 2);
+      ctx.arc(lm[i].x * width, lm[i].y * height, JOINT_RADIUS, 0, Math.PI * 2);
       ctx.fill();
 
       // Inner dot
       ctx.fillStyle = GREEN;
       ctx.beginPath();
-      ctx.arc(landmarks[i].x * width, landmarks[i].y * height, JOINT_RADIUS - 2, 0, Math.PI * 2);
+      ctx.arc(lm[i].x * width, lm[i].y * height, JOINT_RADIUS - 2, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 1;
     }
-  });
-}
-
-/**
- * Helper to dynamically load a script
- */
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
   });
 }
