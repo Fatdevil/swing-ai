@@ -71,10 +71,6 @@ app.post('/api/chat', async (req, res) => {
       return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-05-20' });
-
     const langInstruction = language === 'sv'
       ? 'Svara alltid på svenska. Var kortfattad men hjälpsam.'
       : 'Always respond in English. Be concise but helpful.';
@@ -99,6 +95,13 @@ app.post('/api/chat', async (req, res) => {
 - Om någon frågar om sin sving, tipsa om att ladda upp en video för AI-analys
 - ${langInstruction}`;
 
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-flash-preview-05-20',
+      systemInstruction: systemPrompt
+    });
+
     // Build chat history for multi-turn
     const chatHistory = history.map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
@@ -107,7 +110,6 @@ app.post('/api/chat', async (req, res) => {
 
     const chat = model.startChat({
       history: chatHistory,
-      systemInstruction: systemPrompt,
     });
 
     const result = await chat.sendMessage(message);
