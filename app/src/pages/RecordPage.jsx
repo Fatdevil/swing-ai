@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPhaseLabel } from '../utils/videoFrames';
 import { analyzeSwing, fileToBase64 } from '../utils/api';
@@ -19,6 +19,40 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [guestMode, setGuestMode] = useState(false);
   const [tier, setTier] = useState('basic'); // 'basic' | 'premium'
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // ── Restore intermediate results from sessionStorage on mount ──
+  // If the user refreshed or navigated away during AI analysis,
+  // we restore their pose data so they don't have to re-analyze.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('swing_ai_intermediate');
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.frames) setFrames(data.frames);
+        if (data.poseResults) setPoseResults(data.poseResults);
+        if (data.sequencingData) setSequencingData(data.sequencingData);
+        if (data.cameraAngle) setCameraAngle(data.cameraAngle);
+        if (data.frames) setStep('ready');
+      }
+    } catch { /* ignore corrupt data */ }
+  }, []);
+
+  /** Save intermediate state to sessionStorage */
+  const saveIntermediate = (overrides = {}) => {
+    try {
+      const data = {
+        frames: overrides.frames ?? frames,
+        poseResults: overrides.poseResults ?? poseResults,
+        sequencingData: overrides.sequencingData ?? sequencingData,
+        cameraAngle: overrides.cameraAngle ?? cameraAngle,
+        savedAt: Date.now(),
+      };
+      // Only save if we have frames (skip empty state)
+      if (data.frames) {
+        sessionStorage.setItem('swing_ai_intermediate', JSON.stringify(data));
+      }
+    } catch { /* sessionStorage full or unavailable */ }
+  };
 
   const handleFileSelect = useCallback((file) => {
     if (!file) return;
@@ -42,6 +76,8 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       setFrames(extracted);
       setStep('ready');
       setProgress('');
+      // Save frames to sessionStorage for recovery
+      saveIntermediate({ frames: extracted });
     } catch (err) {
       console.error('Frame extraction failed:', err);
       setError(err.message);
@@ -127,6 +163,9 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       setPoseResults(results);
       setStep('ready');
       setProgress('');
+
+      // Cache intermediate results — survives page refresh
+      saveIntermediate({ poseResults: results, sequencingData: seqData });
     } catch (err) {
       console.error('Pose analysis failed:', err);
       // Fallback — continue without pose data
@@ -286,6 +325,8 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     setProgress('');
     setActiveFrame(0);
     setGuestMode(false);
+    // Clear intermediate cache
+    try { sessionStorage.removeItem('swing_ai_intermediate'); } catch {}
   };
 
   const angles = [
