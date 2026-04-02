@@ -1,23 +1,41 @@
-import { useState } from 'react';
+import { useState, useCallback, lazy, Suspense } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import TopAppBar from './components/TopAppBar';
 import BottomNavBar from './components/BottomNavBar';
-import HomePage from './pages/HomePage';
-import RecordPage from './pages/RecordPage';
-import LibraryPage from './pages/LibraryPage';
-import ProfilePage from './pages/ProfilePage';
-import ResultsPage from './pages/ResultsPage';
-import CoachModePage from './pages/CoachModePage';
-import BallTrackerPage from './pages/BallTrackerPage';
-import ChallengesPage from './pages/ChallengesPage';
-import ProgressPage from './pages/ProgressPage';
-import LoginPage from './pages/LoginPage';
-import WelcomeOverlay from './components/WelcomeOverlay';
 import FloatingChat from './components/FloatingChat';
+import WelcomeOverlay from './components/WelcomeOverlay';
+import LoginPage from './pages/LoginPage';
+
+// Lazy-load heavy pages for code-splitting (Fix #18 from audit)
+const HomePage = lazy(() => import('./pages/HomePage'));
+const RecordPage = lazy(() => import('./pages/RecordPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const ResultsPage = lazy(() => import('./pages/ResultsPage'));
+const CoachModePage = lazy(() => import('./pages/CoachModePage'));
+const BallTrackerPage = lazy(() => import('./pages/BallTrackerPage'));
+const ChallengesPage = lazy(() => import('./pages/ChallengesPage'));
+const ProgressPage = lazy(() => import('./pages/ProgressPage'));
+
+/**
+ * Loading fallback for lazy-loaded pages
+ */
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <span className="material-symbols-outlined text-primary-fixed text-3xl animate-spin">
+        progress_activity
+      </span>
+    </div>
+  );
+}
 
 export default function App() {
   const { user, loading, isFirebaseConfigured: hasAuth } = useAuth();
-  const [currentPage, setCurrentPage] = useState('home');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [analysisData, setAnalysisData] = useState(null);
 
   // Loading state — Firebase checking auth
@@ -37,92 +55,98 @@ export default function App() {
     return <LoginPage />;
   }
 
-  // Logged in — normal app
-  const handleNavigate = (page) => {
-    setCurrentPage(page);
-  };
+  // Navigation helpers (backwards-compatible with old onNavigate pattern)
+  const handleNavigate = useCallback((page) => {
+    const routeMap = {
+      home: '/',
+      record: '/record',
+      coach: '/coach',
+      library: '/library',
+      profile: '/profile',
+      balltracker: '/balltracker',
+      challenges: '/challenges',
+      progress: '/progress',
+      results: '/results',
+    };
+    navigate(routeMap[page] || '/');
+  }, [navigate]);
 
-  const handleAnalysisComplete = (data) => {
+  const handleAnalysisComplete = useCallback((data) => {
     setAnalysisData(data);
-    setCurrentPage('results');
-  };
+    navigate('/results');
+  }, [navigate]);
 
-  const handleViewAnalysis = (data) => {
+  const handleViewAnalysis = useCallback((data) => {
     setAnalysisData(data);
-    setCurrentPage('results');
-  };
+    navigate('/results');
+  }, [navigate]);
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'home':
-        return (
-          <HomePage
-            onNavigate={handleNavigate}
-            onViewAnalysis={handleViewAnalysis}
-          />
-        );
-      case 'record':
-        return (
-          <RecordPage
-            onAnalysisComplete={handleAnalysisComplete}
-            onNavigate={handleNavigate}
-          />
-        );
-      case 'library':
-        return (
-          <LibraryPage
-            onViewAnalysis={handleViewAnalysis}
-          />
-        );
-      case 'profile':
-        return <ProfilePage />;
-      case 'results':
-        return (
-          <ResultsPage
-            data={analysisData}
-            onBack={() => setCurrentPage('home')}
-          />
-        );
-      case 'coach':
-        return (
-          <CoachModePage
-            onBack={() => setCurrentPage('home')}
-            onNavigate={handleNavigate}
-          />
-        );
-      case 'balltracker':
-        return (
-          <BallTrackerPage
-            onBack={() => setCurrentPage('record')}
-          />
-        );
-      case 'challenges':
-        return (
-          <ChallengesPage
-            onBack={() => setCurrentPage('home')}
-            onNavigate={handleNavigate}
-          />
-        );
-      case 'progress':
-        return (
-          <ProgressPage
-            onBack={() => setCurrentPage('home')}
-          />
-        );
-      default:
-        return <HomePage onNavigate={handleNavigate} onViewAnalysis={handleViewAnalysis} />;
-    }
+  // Determine active page from URL path for BottomNavBar highlighting
+  const pathToPage = {
+    '/': 'home',
+    '/record': 'record',
+    '/coach': 'coach',
+    '/library': 'library',
+    '/profile': 'profile',
+    '/balltracker': 'balltracker',
+    '/challenges': 'challenges',
+    '/progress': 'progress',
+    '/results': 'results',
   };
+  const activePage = pathToPage[location.pathname] || 'home';
+
+  // Pages that hide the bottom nav
+  const hideNav = activePage === 'results' || activePage === 'balltracker';
 
   return (
     <div className="min-h-screen bg-background">
       <WelcomeOverlay />
       <TopAppBar />
       <main className="pt-16 pb-24">
-        {renderPage()}
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route
+                path="/"
+                element={<HomePage onNavigate={handleNavigate} onViewAnalysis={handleViewAnalysis} />}
+              />
+              <Route
+                path="/record"
+                element={<RecordPage onAnalysisComplete={handleAnalysisComplete} onNavigate={handleNavigate} />}
+              />
+              <Route
+                path="/library"
+                element={<LibraryPage onViewAnalysis={handleViewAnalysis} />}
+              />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route
+                path="/results"
+                element={<ResultsPage data={analysisData} onBack={() => navigate('/')} />}
+              />
+              <Route
+                path="/coach"
+                element={<CoachModePage onBack={() => navigate('/')} onNavigate={handleNavigate} />}
+              />
+              <Route
+                path="/balltracker"
+                element={<BallTrackerPage onBack={() => navigate('/record')} />}
+              />
+              <Route
+                path="/challenges"
+                element={<ChallengesPage onBack={() => navigate('/')} onNavigate={handleNavigate} />}
+              />
+              <Route
+                path="/progress"
+                element={<ProgressPage onBack={() => navigate('/')} />}
+              />
+              {/* Catch-all: redirect unknown paths to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </main>
-      {currentPage !== 'results' && currentPage !== 'balltracker' && (
-        <BottomNavBar activePage={currentPage} onNavigate={handleNavigate} />
+      {!hideNav && (
+        <BottomNavBar activePage={activePage} onNavigate={handleNavigate} />
       )}
       <FloatingChat />
     </div>
