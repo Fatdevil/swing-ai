@@ -178,7 +178,7 @@ export default function BallTrackerPage({ onBack }) {
 
         // Get the camera offset for the current frame so the trail stays pinned
         const offset = getCameraOffset(trackData.motionOffsets, currentTime);
-        drawBallTrail(ctx, trackData.trajectory, trailIdx, canvas.width, canvas.height, offset);
+        drawBallTrail(ctx, trackData.trajectory, trailIdx, canvas.width, canvas.height, offset, trackData.launchData);
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -220,7 +220,7 @@ export default function BallTrackerPage({ onBack }) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           if (trackData.trajectory.length >= 2) {
             const offset = getCameraOffset(trackData.motionOffsets, lastTime);
-            drawBallTrail(ctx, trackData.trajectory, trackData.trajectory.length - 1, canvas.width, canvas.height, offset);
+            drawBallTrail(ctx, trackData.trajectory, trackData.trajectory.length - 1, canvas.width, canvas.height, offset, trackData.launchData);
           }
         };
       };
@@ -492,14 +492,118 @@ export default function BallTrackerPage({ onBack }) {
           )}
 
           {trackData.trajectory.length >= 2 && (
-            <div className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-4 text-center">
-              <span className="material-symbols-outlined text-primary-fixed text-xl mb-1 block">check_circle</span>
-              <p className="text-primary-fixed text-sm font-medium">
-                {t(
-                  `Bollflykt spårad! ${trackData.trajectory.filter((p) => !p.interpolated).length} detekterade + ${trackData.trajectory.filter((p) => p.interpolated).length} interpolerade punkter`,
-                  `Ball flight tracked! ${trackData.trajectory.filter((p) => !p.interpolated).length} detected + ${trackData.trajectory.filter((p) => p.interpolated).length} interpolated points`
-                )}
-              </p>
+            <div className="space-y-3">
+              {/* Success message */}
+              <div className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-4 text-center">
+                <span className="material-symbols-outlined text-primary-fixed text-xl mb-1 block">check_circle</span>
+                <p className="text-primary-fixed text-sm font-medium">
+                  {t(
+                    `Bollflykt spårad! ${trackData.trajectory.filter((p) => p.source === 'detected').length} detekterade + ${trackData.trajectory.filter((p) => p.source === 'predicted').length} predikterade`,
+                    `Ball flight tracked! ${trackData.trajectory.filter((p) => p.source === 'detected').length} detected + ${trackData.trajectory.filter((p) => p.source === 'predicted').length} predicted`
+                  )}
+                </p>
+              </div>
+
+              {/* Launch Data Card */}
+              {trackData.launchData?.valid && (
+                <div className="glass-panel rounded-xl p-5 space-y-4">
+                  <h3 className="font-headline font-bold text-xs text-primary-fixed uppercase tracking-widest flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">speed</span>
+                    {t('Flygdata', 'Flight Data')}
+                  </h3>
+
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Launch Angle */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-primary-fixed font-headline font-black text-xl">
+                        {trackData.launchData.launchAngle}°
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('Vinkel', 'Launch angle')}
+                      </p>
+                    </div>
+
+                    {/* Estimated Speed */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-primary-fixed font-headline font-black text-xl">
+                        {trackData.launchData.estimatedSpeedKmh}
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('km/h (est)', 'km/h (est)')}
+                      </p>
+                    </div>
+
+                    {/* Shot Shape */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-primary-fixed font-headline font-black text-lg capitalize">
+                        {trackData.launchData.shotShape}
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('Form', 'Shape')}
+                      </p>
+                    </div>
+
+                    {/* Apex */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-cyan-400 font-headline font-black text-xl">
+                        {trackData.launchData.apex.heightPixels}
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('Apex (px)', 'Apex (px)')}
+                      </p>
+                    </div>
+
+                    {/* Carry */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-amber-400 font-headline font-black text-xl">
+                        {trackData.launchData.landing.distancePixels}
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('Carry (px)', 'Carry (px)')}
+                      </p>
+                    </div>
+
+                    {/* Flight time */}
+                    <div className="bg-surface-container rounded-lg p-3 text-center">
+                      <p className="text-on-surface font-headline font-black text-xl">
+                        {trackData.launchData.flightTime}s
+                      </p>
+                      <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
+                        {t('Flygtid', 'Flight time')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quality bar */}
+                  {trackData.quality != null && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] uppercase tracking-widest font-bold text-on-surface-variant">
+                          {t('Spårningskvalitet', 'Tracking Quality')}
+                        </span>
+                        <span className={`text-xs font-black font-headline ${
+                          trackData.quality >= 70 ? 'text-primary-fixed' :
+                          trackData.quality >= 40 ? 'text-amber-400' : 'text-error'
+                        }`}>{trackData.quality}/100</span>
+                      </div>
+                      <div className="h-1.5 bg-surface-container rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            trackData.quality >= 70 ? 'bg-primary-fixed' :
+                            trackData.quality >= 40 ? 'bg-amber-400' : 'bg-error'
+                          }`}
+                          style={{ width: `${trackData.quality}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-on-surface-variant text-[9px] italic">
+                    {t('Hastighet och carry är estimerade värden (ej kalibrerad kamera)', 'Speed and carry are estimated values (uncalibrated camera)')}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
