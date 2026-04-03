@@ -8,18 +8,25 @@ import { detectBallFlight, interpolateTrajectory, drawBallTrail, getCameraOffset
  */
 export default function BallTrackerPage({ onBack }) {
   const { language } = useLanguage();
-  const [step, setStep] = useState('capture'); // capture | processing | replay
+  const [step, setStep] = useState('capture'); // capture | viewfinder | processing | replay
   const [videoFile, setVideoFile] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [progress, setProgress] = useState({ percent: 0, message: '' });
   const [trackData, setTrackData] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTrail, setShowTrail] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const fileInputRef = useRef(null);
+  const liveVideoRef = useRef(null);
+  const streamRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const timerRef = useRef(null);
 
   const t = (sv, en) => language === 'sv' ? sv : en;
 
@@ -31,34 +38,86 @@ export default function BallTrackerPage({ onBack }) {
     setVideoUrl(URL.createObjectURL(file));
   };
 
-  const handleRecord = async () => {
+  // -- CAMERA VIEWFINDER --
+
+  const openCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
         audio: false,
       });
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-      const chunks = [];
-
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        stream.getTracks().forEach((t) => t.stop());
-        handleFileSelect(blob);
-      };
-
-      mediaRecorder.start();
-
-      // Auto-stop after 10 seconds
+      streamRef.current = stream;
+      setStep('viewfinder');
+      // Attach stream to live video element after render
       setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
+        if (liveVideoRef.current) {
+          liveVideoRef.current.srcObject = stream;
+          liveVideoRef.current.play().catch(() => {});
         }
-      }, 10000);
+      }, 50);
     } catch (err) {
       console.error('Camera access error:', err);
     }
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    const mediaRecorder = new MediaRecorder(streamRef.current, {
+      mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm',
+    });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      closeCamera();
+      handleFileSelect(blob);
+    };
+
+    recorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+    setRecordingTime(0);
+
+    // Timer
+    timerRef.current = setInterval(() => {
+      setRecordingTime((prev) => prev + 1);
+    }, 1000);
+
+    // Safety auto-stop at 30 seconds
+    setTimeout(() => {
+      if (mediaRecorder.state === 'recording') {
+        stopRecording();
+      }
+    }, 30000);
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current?.state === 'recording') {
+      recorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const cancelViewfinder = () => {
+    closeCamera();
+    setStep('capture');
   };
 
   const handleStartTracking = async () => {
@@ -139,6 +198,7 @@ export default function BallTrackerPage({ onBack }) {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (videoUrl) URL.revokeObjectURL(videoUrl);
+      closeCamera();
     };
   }, [videoUrl]);
 
@@ -243,11 +303,11 @@ export default function BallTrackerPage({ onBack }) {
             <div className="space-y-4">
               {/* Record */}
               <button
-                onClick={handleRecord}
+                onClick={openCamera}
                 className="w-full kinetic-gradient text-on-primary-fixed h-16 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-sm active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(157,255,0,0.2)]"
               >
                 <span className="material-symbols-filled text-xl">videocam</span>
-                {t('Filma bollflykt', 'Record Ball Flight')}
+                {t('Öppna kameran', 'Open Camera')}
               </button>
 
               {/* Upload */}
@@ -275,6 +335,74 @@ export default function BallTrackerPage({ onBack }) {
               {t('Spåra bollen', 'Track Ball')}
             </button>
           )}
+        </div>
+      )}
+
+      {/* VIEWFINDER STEP */}
+      {step === 'viewfinder' && (
+        <div className="space-y-4">
+          {/* Live camera feed */}
+          <div className="relative rounded-lg overflow-hidden border-2 border-outline-variant/20 bg-black">
+            <video
+              ref={liveVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-auto max-h-[400px] object-cover mirror-mode"
+              style={{ transform: 'scaleX(1)' }}
+            />
+
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 border border-red-500/30">
+                <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(255,0,0,0.6)]" />
+                <span className="text-white text-xs font-bold font-mono">
+                  {String(Math.floor(recordingTime / 60)).padStart(2, '0')}:{String(recordingTime % 60).padStart(2, '0')}
+                </span>
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              onClick={cancelViewfinder}
+              className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full border border-white/10 hover:bg-black/70 transition-colors"
+            >
+              <span className="material-symbols-outlined text-white text-xl">close</span>
+            </button>
+
+            {/* Recording status badge */}
+            {!isRecording && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md rounded-full px-4 py-1.5 border border-white/10">
+                <span className="text-white/70 text-[10px] font-bold uppercase tracking-widest">
+                  {t('Redo att spela in', 'Ready to record')}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Record / Stop buttons */}
+          {!isRecording ? (
+            <button
+              onClick={startRecording}
+              className="w-full h-16 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-sm active:scale-[0.98] transition-all bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_20px_rgba(255,0,0,0.3)]"
+            >
+              <span className="w-5 h-5 rounded-full bg-white" />
+              {t('Spela in', 'Record')}
+            </button>
+          ) : (
+            <button
+              onClick={stopRecording}
+              className="w-full h-16 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-sm active:scale-[0.98] transition-all bg-surface-container-high border-2 border-red-500 text-red-400 hover:bg-red-500/10"
+            >
+              <span className="w-5 h-5 rounded bg-red-500" />
+              {t('Stoppa inspelning', 'Stop Recording')}
+            </button>
+          )}
+
+          {/* Timer info */}
+          <p className="text-center text-on-surface-variant text-[10px] uppercase tracking-widest">
+            {t('Max 30 sekunder • Tryck stopp när bollen landat', 'Max 30 seconds • Press stop when ball lands')}
+          </p>
         </div>
       )}
 
