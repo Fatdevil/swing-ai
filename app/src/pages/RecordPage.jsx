@@ -14,6 +14,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [sequencingData, setSequencingData] = useState(null);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState('');
+  const [progressPercent, setProgressPercent] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [activeFrame, setActiveFrame] = useState(0);
   const [guestMode, setGuestMode] = useState(false);
@@ -188,22 +189,34 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     setStep('coaching');
     setError(null);
 
-    // Tier-aware progress messages
+    // Tier-aware progress messages with percentage targets
     const progressSteps = tier === 'premium'
-      ? (language === 'sv'
-        ? ['Konverterar video...', '🎬 Gemini analyserar rörelse...', '📐 Claude analyserar positioner...', '🧠 Sammanfattar coaching-rapport...']
-        : ['Converting video...', '🎬 Gemini analyzing motion...', '📐 Claude analyzing positions...', '🧠 Building coaching report...'])
-      : (language === 'sv'
-        ? ['Konverterar video...', '🎬 Gemini analyserar din sving...', '🎬 Bygger coaching-rapport...']
-        : ['Converting video...', '🎬 Gemini analyzing your swing...', '🎬 Building coaching report...']);
+      ? [
+          { pct: 5,  msg: language === 'sv' ? 'Konverterar video...' : 'Converting video...' },
+          { pct: 20, msg: language === 'sv' ? '📤 Laddar upp till API...' : '📤 Uploading to API...' },
+          { pct: 35, msg: language === 'sv' ? '🎬 Gemini analyserar rörelse...' : '🎬 Gemini analyzing motion...' },
+          { pct: 55, msg: language === 'sv' ? '📐 Claude analyserar positioner...' : '📐 Claude analyzing positions...' },
+          { pct: 75, msg: language === 'sv' ? '🧠 Sammanfattar coaching-rapport...' : '🧠 Building coaching report...' },
+          { pct: 90, msg: language === 'sv' ? '✨ Bygger resultat...' : '✨ Building results...' },
+        ]
+      : [
+          { pct: 5,  msg: language === 'sv' ? 'Konverterar video...' : 'Converting video...' },
+          { pct: 20, msg: language === 'sv' ? '📤 Laddar upp till API...' : '📤 Uploading to API...' },
+          { pct: 45, msg: language === 'sv' ? '🎬 Gemini analyserar din sving...' : '🎬 Gemini analyzing your swing...' },
+          { pct: 75, msg: language === 'sv' ? '🎬 Bygger coaching-rapport...' : '🎬 Building coaching report...' },
+          { pct: 90, msg: language === 'sv' ? '✨ Bygger resultat...' : '✨ Building results...' },
+        ];
 
-    setProgress(progressSteps[0]);
+    let stepIdx = 0;
+    setProgress(progressSteps[0].msg);
+    setProgressPercent(progressSteps[0].pct);
     const progressTimer = setInterval(() => {
-      setProgress(prev => {
-        const idx = progressSteps.indexOf(prev);
-        return idx < progressSteps.length - 1 ? progressSteps[idx + 1] : prev;
-      });
-    }, 4000);
+      stepIdx++;
+      if (stepIdx < progressSteps.length) {
+        setProgress(progressSteps[stepIdx].msg);
+        setProgressPercent(progressSteps[stepIdx].pct);
+      }
+    }, 5000);
 
     try {
       const { createVideoThumbnail } = await import('../utils/videoFrames.js');
@@ -212,7 +225,11 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       let videoBase64 = null;
       if (videoFile) {
         try {
+          const fileSizeMB = (videoFile.size / (1024 * 1024)).toFixed(1);
+          setProgress(language === 'sv' ? `📦 Konverterar video (${fileSizeMB} MB)...` : `📦 Converting video (${fileSizeMB} MB)...`);
+          setProgressPercent(10);
           videoBase64 = await fileToBase64(videoFile);
+          setProgressPercent(20);
         } catch (e) {
           console.warn('Video base64 conversion failed:', e);
         }
@@ -266,6 +283,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
       });
 
       clearInterval(progressTimer);
+      setProgressPercent(95);
 
       // Create thumbnail for history
       const thumbnail = await createVideoThumbnail(frames);
@@ -689,14 +707,41 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
 
           {/* Progress */}
           {progress && (step === 'analyzing' || step === 'coaching') && (
-            <div className="bg-surface-container rounded-lg p-4 flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary-fixed animate-spin">progress_activity</span>
-              <span className="text-on-surface text-sm font-medium">{progress}</span>
+            <div className="bg-surface-container rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-primary-fixed animate-spin">progress_activity</span>
+                <span className="text-on-surface text-sm font-medium flex-1">{progress}</span>
+                {step === 'coaching' && (
+                  <span className="text-primary-fixed font-headline font-black text-lg">
+                    {progressPercent}%
+                  </span>
+                )}
+              </div>
+              {step === 'coaching' && (
+                <div className="h-2 bg-primary-fixed/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary-fixed rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* Coaching Error + Retry */}
-          {step === 'coaching_error' && (
+          {step === 'coaching_error' && (() => {
+            // Parse error for user-friendly message
+            const isApiKey = error?.toLowerCase().includes('api key') || error?.includes('401');
+            const isRateLimit = error?.includes('429');
+            const isNetwork = error?.includes('fetch') || error?.includes('network') || error?.includes('ECONNREFUSED');
+            const friendlyMsg = isApiKey
+              ? (language === 'sv' ? 'API-nyckel saknas eller är ogiltig. Kontrollera server-inställningarna.' : 'API key missing or invalid. Check server settings.')
+              : isRateLimit
+              ? (language === 'sv' ? 'För många anrop — vänta en stund och försök igen.' : 'Too many requests — wait a moment and try again.')
+              : isNetwork
+              ? (language === 'sv' ? 'Kunde inte nå servern. Kontrollera din internetanslutning.' : 'Could not reach the server. Check your internet connection.')
+              : null;
+            return (
             <div className="bg-error-container/20 rounded-lg p-5 space-y-3">
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-error mt-0.5">error</span>
@@ -704,7 +749,10 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
                   <p className="text-error font-bold text-sm">
                     {language === 'sv' ? 'AI-coaching misslyckades' : 'AI coaching failed'}
                   </p>
-                  <p className="text-error/70 text-xs mt-1">{error}</p>
+                  {friendlyMsg && (
+                    <p className="text-on-surface text-xs mt-1">{friendlyMsg}</p>
+                  )}
+                  <p className="text-error/50 text-[10px] mt-1 font-mono break-all">{error}</p>
                   <p className="text-on-surface-variant text-xs mt-2">
                     {language === 'sv' ? 'Tryck nedan för att försöka igen.' : 'Press below to try again.'}
                   </p>
@@ -718,7 +766,8 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
                 {language === 'sv' ? 'Försök igen' : 'Retry'}
               </button>
             </div>
-          )}
+            );
+          })()}
 
           {/* Main Action Buttons */}
           <div className="flex flex-col gap-4">
