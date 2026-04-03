@@ -1,0 +1,19 @@
+{
+  "name": "SWING_AI — Golf Swing Analysis",
+  "short_name": "SWING_AI",
+  "description": "AI-driven golfsvinganalys med 3D biomechanik, personlig coaching och prestationsuppföljning",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0e0e",
+  "theme_color": "#0e0e0e",
+  "categories": ["sports", "fitness", "health"],
+  "icons": [
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

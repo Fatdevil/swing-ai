@@ -108,6 +108,17 @@ export function drawAnnotations(ctx, landmarks, measurements, width, height, pha
   // 9. Wrist position (track club path)
   drawWristTracker(ctx, lWrist, rWrist);
 
+  // 10. Lead arm extension (shoulder → elbow → wrist angle)
+  const lElbow = px(landmarks[13]);
+  if (measurements.leadArmExtension) {
+    drawAngleArc(ctx, lShoulder, lElbow, lWrist, measurements.leadArmExtension, 'Arm', showLabels);
+  }
+
+  // 11. Confidence + 3D badge (top-right corner)
+  if (showLabels) {
+    drawInfoBadges(ctx, measurements, width);
+  }
+
   ctx.restore();
 }
 
@@ -336,4 +347,55 @@ export async function annotateFrame(frameBase64, landmarks, measurements, phase)
     };
     img.src = frameBase64;
   });
+}
+
+/**
+ * Draw info badges in the top-right corner:
+ * - "3D" badge if measurements use 3D data
+ * - Average confidence percentage
+ */
+function drawInfoBadges(ctx, measurements, canvasWidth) {
+  const entries = Object.values(measurements).filter(m => m && typeof m.confidence === 'number');
+  if (entries.length === 0) return;
+
+  const avgConf = Math.round(entries.reduce((sum, m) => sum + m.confidence, 0) / entries.length * 100);
+  const is3D = entries.some(m => m.is3D);
+
+  let x = canvasWidth - 12; // right edge
+  const y = 16;
+  const badgeH = 20;
+
+  ctx.font = `bold ${FONT_SIZE - 1}px 'Inter', system-ui, sans-serif`;
+  ctx.textAlign = 'right';
+
+  // Confidence badge
+  const confText = `${avgConf}%`;
+  const confW = ctx.measureText(confText).width + 12;
+  const confColor = avgConf >= 80 ? COLORS.good : avgConf >= 60 ? COLORS.warning : COLORS.poor;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.beginPath();
+  roundRect(ctx, x - confW, y, confW, badgeH, 4);
+  ctx.fill();
+  ctx.fillStyle = confColor;
+  ctx.fillText(confText, x - 6, y + 14);
+
+  // 3D badge (if available)
+  if (is3D) {
+    x -= confW + 6;
+    const tagText = '3D';
+    const tagW = ctx.measureText(tagText).width + 12;
+    ctx.fillStyle = 'rgba(157, 255, 0, 0.15)';
+    ctx.beginPath();
+    roundRect(ctx, x - tagW, y, tagW, badgeH, 4);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(157, 255, 0, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    roundRect(ctx, x - tagW, y, tagW, badgeH, 4);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.good;
+    ctx.fillText(tagText, x - 6, y + 14);
+  }
+
+  ctx.textAlign = 'left'; // Reset
 }
