@@ -392,6 +392,125 @@ export const FAULT_PROFILES = [
     ],
     relatedDrills: ['alignment_stick_plane', 'one_arm_drill', 'mirror_drill'],
   },
+  {
+    id: 'slice',
+    name: { en: 'Slice / Push-Slice', sv: 'Slice / Push-Slice' },
+    severity: 'critical',
+    phases: ['downswing', 'impact'],
+    description: {
+      en: 'Ball curves significantly right (for RH golfer) due to open club face relative to swing path.',
+      sv: 'Bollen kurvar kraftigt åt höger (för högerhänt) på grund av öppen klubbyta relativt svingbanan.',
+    },
+    causes: [
+      'Over-the-top path combined with open face',
+      'Weak grip (hands rotated too far left on club)',
+      'Body stops rotating, arms flip to compensate',
+      'Ball position too far forward',
+      'Insufficient forearm rotation through impact',
+    ],
+    effects: ['Severe distance loss', 'Ball misses right consistently', 'High, weak ball flight', 'Cannot play in wind'],
+    visualCues: [
+      'Club comes from outside on downswing',
+      'Hands behind club head at impact (no shaft lean)',
+      'Body aimed left at impact, face aimed right',
+    ],
+    relatedDrills: ['headcover_drill', 'strong_grip_drill', 'split_grip_rotation', 'alignment_stick_plane'],
+  },
+  {
+    id: 'hook',
+    name: { en: 'Hook / Pull-Hook', sv: 'Hook / Pull-Hook' },
+    severity: 'major',
+    phases: ['downswing', 'impact'],
+    description: {
+      en: 'Ball curves sharply left (for RH golfer) due to closed face relative to path.',
+      sv: 'Bollen kurvar kraftigt åt vänster (för högerhänt) på grund av stängd klubbyta relativt banan.',
+    },
+    causes: [
+      'Strong grip (hands rotated too far right)',
+      'Overactive hands and forearms through impact',
+      'Club path too far from inside (excessive in-to-out)',
+      'Early release of wrist angle',
+      'Body stops, hands flip over',
+    ],
+    effects: ['Low, diving ball flight', 'Unpredictable misses left', 'Difficult to control distance'],
+    visualCues: [
+      'Forearms roll over aggressively through impact',
+      'Club path severely inside-out',
+      'Follow-through wraps around body quickly',
+    ],
+    relatedDrills: ['towel_under_arm', 'body_rotation_drill', 'split_grip_rotation'],
+  },
+  {
+    id: 'fat_shots',
+    name: { en: 'Fat / Heavy Shots', sv: 'Feta slag / Heavy shots' },
+    severity: 'major',
+    phases: ['downswing', 'impact'],
+    description: {
+      en: 'Club strikes the ground before the ball, losing energy and distance.',
+      sv: 'Klubban slår i marken före bollen, förlorar energi och distans.',
+    },
+    causes: [
+      'Weight stays on trail foot through impact (reverse pivot)',
+      'Early release — hands cast the club, low point moves behind ball',
+      'Swaying — lateral body movement shifts the arc behind the ball',
+      'Loss of posture — spine angle changes',
+      'Ball position too far back in stance',
+    ],
+    effects: ['Major distance loss', 'Chunks of turf before ball', 'Inconsistent contact', 'Confidence destroyer'],
+    visualCues: [
+      'Divot starts behind the ball position',
+      'Weight appears to fall backward at impact',
+      'Head drops or dips during downswing',
+    ],
+    relatedDrills: ['step_drill', 'line_drill', 'pressure_shift_drill', 'half_swing_punch'],
+  },
+  {
+    id: 'thin_top',
+    name: { en: 'Thin / Topped Shots', sv: 'Tunna / Toppade slag' },
+    severity: 'major',
+    phases: ['impact'],
+    description: {
+      en: 'Club contacts the top half of the ball, producing low runners or worm-burners.',
+      sv: 'Klubban träffar övre halvan av bollen, producerar låga rullar eller marknötare.',
+    },
+    causes: [
+      'Standing up through impact (early extension / loss of posture)',
+      'Trying to lift the ball instead of hitting down through it',
+      'Deceleration through impact zone',
+      'Fear of hitting the ground (often follows fat shots)',
+      'Eye line lifting before impact (looking up too early)',
+    ],
+    effects: ['Extremely low ball flight', 'Unpredictable distance', 'No spin for stopping on greens'],
+    visualCues: [
+      'Head lifts before impact',
+      'Spine angle straightens before contact',
+      'No divot after the ball',
+    ],
+    relatedDrills: ['tee_peg_drill', 'head_against_wall', 'mirror_drill', 'chair_drill'],
+  },
+  {
+    id: 'deceleration',
+    name: { en: 'Deceleration', sv: 'Retardation' },
+    severity: 'moderate',
+    phases: ['downswing', 'impact'],
+    description: {
+      en: 'Slowing down through impact instead of accelerating. Common in short game and under pressure.',
+      sv: 'Saktar ner genom träff istället för att accelerera. Vanligt i korta spelet och under press.',
+    },
+    causes: [
+      'Fear of hitting too far (especially in chipping/pitching)',
+      'Backswing too long for intended distance',
+      'Tension and grip pressure increasing through downswing',
+      'Mental block — fear of the result',
+    ],
+    effects: ['Fat and thin contact mix', 'Distance control impossible', 'Weak, floating ball flight', 'Chunks on chips'],
+    visualCues: [
+      'Big backswing, abbreviated follow-through',
+      'Follow-through shorter than backswing',
+      'Club appears to "quit" at impact',
+    ],
+    relatedDrills: ['clock_drill', 'one_hand_chip', 'half_swing_punch', 'tempo_drill'],
+  },
 ];
 
 
@@ -576,6 +695,152 @@ export const DRILL_LIBRARY = {
       sv: 'Trä ett motståndsband runt låren ovanför knäna. Gör övningssvingar. Bandet förhindrar lateral svajning och uppmuntrar rotationsrörelse.',
     },
     reps: '20 swings at 60% speed',
+  },
+
+  // ── NEW DRILLS ────────────────────────────────────────────────
+
+  strong_grip_drill: {
+    name: { en: 'Grip Rotation Check', sv: 'Grepprotation-kontroll' },
+    targetFaults: ['slice', 'hook'],
+    difficulty: 'beginner',
+    equipment: 'Club only',
+    instructions: {
+      en: 'Hold the club at waist height with your lead hand only. Check that you can see 2-3 knuckles when looking down. If you see only 1 knuckle (weak grip → slice) or 4 (strong grip → hook), rotate your hand. Re-grip with trail hand matching. Hit 20 balls checking grip before each shot.',
+      sv: 'Håll klubban i midjehöjd med bara ledande handen. Kontrollera att du ser 2-3 knogar när du tittar ner. Ser du bara 1 knog (svagt grepp → slice) eller 4 (starkt grepp → hook), rotera handen. Greppa om med bakre handen. Slå 20 bollar och kontrollera greppet före varje slag.',
+    },
+    reps: '20 balls, check grip before each',
+  },
+  split_grip_rotation: {
+    name: { en: 'Split Grip Rotation Drill', sv: 'Delat grepp rotationsövning' },
+    targetFaults: ['slice', 'hook'],
+    difficulty: 'intermediate',
+    equipment: '7-iron',
+    instructions: {
+      en: 'Grip the club with a 2-inch gap between your hands. Make slow swings feeling how the forearms rotate through impact. The split grip exaggerates the release feeling. For slice: focus on the trail hand rolling over the lead. For hook: feel the lead hand staying on top longer.',
+      sv: 'Greppa klubban med 5 cm mellanrum mellan händerna. Gör långsamma svingar och känn hur underarmarna roterar genom träff. Det delade greppet överdriver release-känslan. Vid slice: fokusera på att bakre handen rullar över. Vid hook: känn att ledande handen stannar ovanför längre.',
+    },
+    reps: '15 swings each direction',
+  },
+  body_rotation_drill: {
+    name: { en: 'Body Rotation Drill', sv: 'Kroppsrotationsövning' },
+    targetFaults: ['hook', 'chicken_wing'],
+    difficulty: 'beginner',
+    equipment: 'Club across chest',
+    instructions: {
+      en: 'Hold a club across your chest (arms crossed). Practice rotating your body through the full swing motion without arms. Focus on the feeling of your chest facing the target at finish. This trains body-driven rotation instead of hand-driven flipping.',
+      sv: 'Håll en klubba tvärs över bröstet (armarna i kors). Öva att rotera kroppen genom hela svingrörelsen utan armar. Fokusera på känslan att bröstet riktas mot målet vid avslut. Detta tränar kroppsdriven rotation istället för handdriven flippning.',
+    },
+    reps: '20 rotations, then 10 swings with club',
+  },
+  line_drill: {
+    name: { en: 'Line Drill (Low Point Control)', sv: 'Linjövning (lågpunktskontroll)' },
+    targetFaults: ['fat_shots', 'thin_top'],
+    difficulty: 'beginner',
+    equipment: 'Chalk line or towel + club',
+    instructions: {
+      en: 'Draw a line on the ground (chalk or place a thin towel). Practice taking divots that start ON the line or just after it (target-side). If your divots start before the line, you are hitting fat. The line represents the ball position.',
+      sv: 'Rita en linje på marken (krita eller lägg en tunn handduk). Öva att ta fjun som startar PÅ linjen eller strax efter (mål-sidan). Om fjunet startar före linjen slår du fett. Linjen representerar bollpositionen.',
+    },
+    reps: '30 swings with wedge, check divot position each time',
+  },
+  tee_peg_drill: {
+    name: { en: 'Tee Peg Brush Drill', sv: 'Tee-peg borst-övning' },
+    targetFaults: ['thin_top', 'fat_shots'],
+    difficulty: 'beginner',
+    equipment: 'Tee peg + club',
+    instructions: {
+      en: 'Push a tee peg into the ground so only 1/4 inch shows. Practice clipping the tee out of the ground with your iron. This trains a descending blow with the lowest point after the ball. If you miss the tee high = topping. If you hammer it deep = too steep.',
+      sv: 'Tryck ner en tee-peg i marken så att bara 5 mm sticker upp. Öva att klippa bort teen ur marken med ditt järn. Detta tränar ett nedåtgående slag med lågpunkten efter bollen. Missar du teen högt = topping. Hamrar du den djupt = för brant.',
+    },
+    reps: '20 clips with pitching wedge',
+  },
+  head_against_wall: {
+    name: { en: 'Head Against Wall Drill', sv: 'Huvud-mot-vägg-övning' },
+    targetFaults: ['thin_top', 'loss_of_posture'],
+    difficulty: 'beginner',
+    equipment: 'Wall',
+    instructions: {
+      en: 'Stand facing a wall with your forehead gently touching it (use a towel for comfort). Make practice swing motions with your arms. Your head should maintain contact with the wall throughout. If your head pulls away, you are lifting/standing up.',
+      sv: 'Stå vänd mot en vägg med pannan lätt mot väggen (använd en handduk för komfort). Gör svingrörelse med armarna. Huvudet ska behålla kontakt med väggen hela tiden. Om huvudet drar sig bort reser du dig/lyfter.',
+    },
+    reps: '20 practice swings',
+  },
+  clock_drill: {
+    name: { en: 'Clock Drill (Distance Control)', sv: 'Klockövning (avståndskontroll)' },
+    targetFaults: ['deceleration'],
+    difficulty: 'beginner',
+    equipment: 'Wedge + balls',
+    instructions: {
+      en: 'Imagine your arms as clock hands. Practice three backswing lengths: 7 o\'clock (short), 9 o\'clock (medium), 10 o\'clock (long). Key rule: follow-through must ALWAYS be at least as long as backswing. 7→5, 9→3, 10→2. This eliminates deceleration by matching swing length to desired distance.',
+      sv: 'Tänk på armarna som klockvisare. Öva tre baksvingslängder: kl 7 (kort), kl 9 (medium), kl 10 (lång). Nyckelregel: genomsvingen måste ALLTID vara minst lika lång som baksvingen. 7→5, 9→3, 10→2. Detta eliminerar retardation genom att matcha svinglängd med önskat avstånd.',
+    },
+    reps: '10 balls at each clock position',
+  },
+  one_hand_chip: {
+    name: { en: 'One-Hand Chipping', sv: 'Enhands-chip' },
+    targetFaults: ['deceleration', 'casting'],
+    difficulty: 'intermediate',
+    equipment: 'Wedge + balls',
+    instructions: {
+      en: 'Chip with your trail hand only for 10 balls, then lead hand only for 10 balls. The trail hand teaches acceleration and release feel. The lead hand teaches connection and body rotation. Then combine for 10 two-handed chips.',
+      sv: 'Chippa med bara bakre handen i 10 bollar, sedan bara ledande handen i 10 bollar. Bakre handen lär ut acceleration och release-känsla. Ledande handen lär ut anslutning och kroppsrotation. Kombinera sedan för 10 tvåhands-chip.',
+    },
+    reps: '10 trail + 10 lead + 10 both = 30 total',
+  },
+  tempo_drill: {
+    name: { en: 'Whoosh Tempo Drill', sv: 'Whoosh tempo-övning' },
+    targetFaults: ['deceleration', 'casting'],
+    difficulty: 'beginner',
+    equipment: 'Club (turn upside down)',
+    instructions: {
+      en: 'Hold the club upside down (grip the shaft near the head). Swing and listen for the "whoosh" sound. The whoosh should happen AFTER where the ball would be (near your lead foot), NOT behind you. If the whoosh is early = casting. Practice until the whoosh is consistently past the ball position.',
+      sv: 'Håll klubban upp och ner (greppa skaftet nära huvudet). Svinga och lyssna efter "whoosh"-ljudet. Whooshen ska höras EFTER där bollen skulle vara (nära ledande fot), INTE bakom dig. Om whooshen är tidig = castning. Öva tills whooshen konsekvent är förbi bollpositionen.',
+    },
+    reps: '20 swings, focusing on swoosh timing',
+  },
+  one_arm_drill: {
+    name: { en: 'One-Arm Swing Drill', sv: 'Enarms-svingövning' },
+    targetFaults: ['flat_backswing', 'chicken_wing'],
+    difficulty: 'intermediate',
+    equipment: '7-iron',
+    instructions: {
+      en: 'Make half swings with your lead arm only. This teaches proper plane, connection, and extension through impact. Start with small swings and gradually increase. The club should feel "on plane" with your arm guiding the path.',
+      sv: 'Gör halvsvingar med bara ledande armen. Detta lär ut korrekt plan, anslutning och extension genom träff. Börja med små svingar och öka gradvis. Klubban ska kännas "på plan" med armen som guidar banan.',
+    },
+    reps: '15 lead arm only, then 10 full swings',
+  },
+  pre_round_warmup: {
+    name: { en: 'Pre-Round Warm-Up Routine', sv: 'Uppvärmningsrutin före rundan' },
+    targetFaults: [],
+    difficulty: 'beginner',
+    equipment: 'Club + resistance band (optional)',
+    instructions: {
+      en: '5 minutes: 1) Hip circles — 10 each direction. 2) Club behind back stretches — rotate torso 10 times. 3) Practice swings at 50% speed — 10 reps. 4) Whoosh drill — 5 reps finding tempo. 5) Full swings at 80% — 5 reps. 6) 3 visualized shots at your target.',
+      sv: '5 minuter: 1) Höftcirklar — 10 åt varje håll. 2) Klubba bakom ryggen stretchar — rotera bål 10 gånger. 3) Övningssvingar på 50% — 10 reps. 4) Whoosh-övning — 5 reps för tempo. 5) Fulla svingar på 80% — 5 reps. 6) 3 visualiserade slag mot ditt mål.',
+    },
+    reps: '1 complete routine before each round',
+  },
+  gate_drill: {
+    name: { en: 'Gate Drill (Path Training)', sv: 'Port-övning (bana-träning)' },
+    targetFaults: ['over_the_top', 'slice'],
+    difficulty: 'intermediate',
+    equipment: '2 tee pegs + club',
+    instructions: {
+      en: 'Place two tees just wider than your club head, one slightly inside and behind the ball, one outside and in front. Swing through the "gate" without hitting either tee. If you hit the outside tee = over the top. Inside tee = too far from inside.',
+      sv: 'Placera två tees lite bredare än klubbhuvudet, en strax innanför och bakom bollen, en utanför och framför. Svinga genom "porten" utan att träffa någon tee. Träffar du yttre teen = over the top. Inre teen = för långt inifrån.',
+    },
+    reps: '20 shots through the gate',
+  },
+  impact_bag_drill: {
+    name: { en: 'Impact Bag Drill', sv: 'Impact-bag övning' },
+    targetFaults: ['casting', 'slice', 'thin_top'],
+    difficulty: 'beginner',
+    equipment: 'Impact bag or old cushion',
+    instructions: {
+      en: 'Place an impact bag (or large cushion) where the ball would be. Make slow swings into the bag and HOLD the impact position for 3 seconds. Check: hands ahead of bag, hips open, weight on lead foot, lead arm straight. This trains the correct impact position.',
+      sv: 'Placera en impact-bag (eller stor kudde) där bollen skulle vara. Gör långsamma svingar in i bagen och HÅLL impact-positionen i 3 sekunder. Kontrollera: händerna framför bagen, höfterna öppna, vikten på ledande fot, ledande arm rak. Detta tränar korrekt impact-position.',
+    },
+    reps: '15 impacts, hold each for 3 seconds',
   },
 };
 

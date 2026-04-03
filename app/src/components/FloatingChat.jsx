@@ -1,5 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
+import { getSetting } from '../utils/storage';
+import { getCoachingHistory, buildCoachingHistoryPrompt } from '../utils/coachingHistory';
+import { COACHING_APPROACHES, REFERENCE_PLAYERS, COACH_PERSONALITIES } from '../utils/referencePlayers';
+
+/**
+ * FloatingChat — Global coaching assistant bubble
+ *
+ * NOW with full coaching context:
+ * - Coaching profile (approach, reference player, goals)
+ * - Latest analysis results (score, faults, drills)
+ * - Session history and trends
+ * - Coaching personality
+ */
 
 export default function FloatingChat() {
   const { language } = useLanguage();
@@ -7,6 +20,7 @@ export default function FloatingChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [coachingContext, setCoachingContext] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -19,6 +33,37 @@ export default function FloatingChat() {
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  // Build coaching context on first open
+  useEffect(() => {
+    if (isOpen && !coachingContext) {
+      buildContext().then(setCoachingContext);
+    }
+  }, [isOpen]);
+
+  async function buildContext() {
+    const profile = getSetting('coaching_profile') || {};
+    const approach = profile.approach ? COACHING_APPROACHES[profile.approach] : null;
+    const player = profile.referencePlayer ? REFERENCE_PLAYERS[profile.referencePlayer] : null;
+    const personality = profile.personality ? COACH_PERSONALITIES[profile.personality] : COACH_PERSONALITIES.technical_pro;
+
+    let profileCtx = '';
+    if (approach) profileCtx += `\nCoaching approach: ${approach.name[language]} — ${approach.description[language]}`;
+    if (player) profileCtx += `\nReference player: ${player.name} (${player.style[language]})`;
+    if (profile.specificGoal) profileCtx += `\nUser's goal: ${profile.specificGoal}`;
+
+    let historyCtx = '';
+    try {
+      const history = await getCoachingHistory();
+      historyCtx = buildCoachingHistoryPrompt(history, language);
+    } catch { /* ignore */ }
+
+    return {
+      profileCtx,
+      historyCtx,
+      personalityInstructions: personality.promptInstructions,
+    };
+  }
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -37,6 +82,8 @@ export default function FloatingChat() {
           message: text,
           history: messages,
           language,
+          // NEW: send coaching context to server
+          coachingContext: coachingContext || undefined,
         }),
       });
 
@@ -61,9 +108,10 @@ export default function FloatingChat() {
     }
   };
 
-  const quickQuestions = language === 'sv'
-    ? ['Hur fixar jag en slice?', 'Bästa uppvärmningen?', 'Vad är X-Factor?']
-    : ['How do I fix a slice?', 'Best warm-up?', 'What is X-Factor?'];
+  const sv = language === 'sv';
+  const quickQuestions = sv
+    ? ['Hur fixar jag en slice?', 'Bästa uppvärmningen?', 'Tips för min sving?']
+    : ['How do I fix a slice?', 'Best warm-up?', 'Tips for my swing?'];
 
   return (
     <>
@@ -80,7 +128,9 @@ export default function FloatingChat() {
               </div>
               <div>
                 <h4 className="font-headline font-bold text-xs text-on-surface">SWING AI Coach</h4>
-                <p className="text-[9px] text-on-surface-variant">Gemini Flash · {language === 'sv' ? 'Alltid online' : 'Always online'}</p>
+                <p className="text-[9px] text-on-surface-variant">
+                  {coachingContext ? (sv ? 'Personlig coach · Online' : 'Personal coach · Online') : (sv ? 'Golf coach · Online' : 'Golf coach · Online')}
+                </p>
               </div>
             </div>
             <button
@@ -96,10 +146,15 @@ export default function FloatingChat() {
             {messages.length === 0 && (
               <div className="space-y-3">
                 <p className="text-on-surface-variant text-xs text-center py-2">
-                  {language === 'sv'
+                  {sv
                     ? 'Hej! Fråga mig vad som helst om golf 🏌️'
                     : 'Hi! Ask me anything about golf 🏌️'}
                 </p>
+                {coachingContext?.profileCtx && (
+                  <p className="text-primary-fixed/60 text-[9px] text-center">
+                    {sv ? '✨ Jag känner till din profil och dina mål' : '✨ I know your profile and goals'}
+                  </p>
+                )}
                 {/* Quick questions */}
                 <div className="flex flex-wrap gap-1.5 justify-center">
                   {quickQuestions.map((q, i) => (
@@ -150,7 +205,7 @@ export default function FloatingChat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={language === 'sv' ? 'Ställ en fråga...' : 'Ask a question...'}
+                placeholder={sv ? 'Ställ en fråga...' : 'Ask a question...'}
                 className="flex-1 bg-surface-container-highest text-on-surface text-xs rounded-full px-4 py-2.5 outline-none placeholder:text-on-surface-variant/40 border border-outline-variant/10 focus:border-primary-fixed/30 transition-colors"
                 disabled={loading}
               />
