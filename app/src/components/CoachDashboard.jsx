@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { DRILL_LIBRARY } from '../utils/golfKnowledge';
 import { getCoachingHistory, completeDrill, reactivateDrill, getDrillLog } from '../utils/coachingHistory';
 import { COACHING_APPROACHES, REFERENCE_PLAYERS, COACH_PERSONALITIES } from '../utils/referencePlayers';
+import { getActivePlan, toggleDrillDone, advanceWeek, goToWeek } from '../utils/trainingPlan';
 import { setSetting } from '../utils/storage';
 import CoachChat from './CoachChat';
 
@@ -22,6 +23,7 @@ const APPROACH_ICONS = {
 export default function CoachDashboard({ profile, language, onReset, onNavigate, onProfileUpdate }) {
   const [history, setHistory] = useState(null);
   const [drills, setDrills] = useState([]);
+  const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -36,6 +38,7 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
       const h = await getCoachingHistory();
       setHistory(h);
       setDrills(getDrillLog());
+      setPlan(getActivePlan());
     } catch (e) {
       console.error('Coach history load failed:', e);
     }
@@ -297,6 +300,27 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
         </div>
       )}
 
+      {/* Training Plan */}
+      {plan && plan.weeks && (
+        <TrainingPlanCard
+          plan={plan}
+          sv={sv}
+          language={language}
+          onToggleDrill={(weekIdx, drillIdx) => {
+            const updated = toggleDrillDone(weekIdx, drillIdx);
+            if (updated) setPlan({ ...updated });
+          }}
+          onAdvanceWeek={() => {
+            const updated = advanceWeek();
+            if (updated) setPlan({ ...updated });
+          }}
+          onGoToWeek={(idx) => {
+            const updated = goToWeek(idx);
+            if (updated) setPlan({ ...updated });
+          }}
+        />
+      )}
+
       {/* Drill Log */}
       {(activeDrills.length > 0 || completedDrills.length > 0) && (
         <div className="bg-surface-container p-5 rounded-lg kinetic-gradient-border">
@@ -530,6 +554,172 @@ function Sparkline({ data, language }) {
         </span>
         <span className="text-on-surface-variant text-[9px]">
           {new Date(data[data.length - 1].timestamp).toLocaleDateString(sv ? 'sv-SE' : 'en-US', { month: 'short', day: 'numeric' })}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Training Plan Card ──────────────────────────────────────
+
+function TrainingPlanCard({ plan, sv, language, onToggleDrill, onAdvanceWeek, onGoToWeek }) {
+  const currentWeek = plan.weeks[plan.currentWeek];
+  if (!currentWeek) return null;
+
+  const completedCount = currentWeek.drills.filter(d => d.done).length;
+  const totalCount = currentWeek.drills.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+  const weekComplete = completedCount === totalCount && totalCount > 0;
+
+  const intensityLabel = {
+    slow: sv ? 'Långsam' : 'Slow',
+    medium: sv ? 'Medium' : 'Medium',
+    full: sv ? 'Full fart' : 'Full speed',
+    test: sv ? 'Test' : 'Test',
+    warmup: sv ? 'Uppvärmning' : 'Warm-up',
+  };
+
+  const intensityColor = {
+    slow: 'text-blue-400',
+    medium: 'text-amber-400',
+    full: 'text-primary-fixed',
+    test: 'text-purple-400',
+    warmup: 'text-cyan-400',
+  };
+
+  return (
+    <div className="bg-surface-container p-5 rounded-lg kinetic-gradient-border">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-fixed text-lg">calendar_month</span>
+          <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest font-headline">
+            {sv ? 'Träningsplan' : 'Training Plan'}
+          </span>
+        </div>
+        <span className="text-primary-fixed text-[10px] font-bold uppercase tracking-wider">
+          {sv ? `Vecka ${plan.currentWeek + 1}/4` : `Week ${plan.currentWeek + 1}/4`}
+        </span>
+      </div>
+
+      {/* Week selector dots */}
+      <div className="flex items-center gap-2 mb-4">
+        {plan.weeks.map((w, i) => (
+          <button
+            key={i}
+            onClick={() => onGoToWeek(i)}
+            className={`flex-1 h-1.5 rounded-full transition-all ${
+              i === plan.currentWeek
+                ? 'bg-primary-fixed'
+                : i < plan.currentWeek
+                ? 'bg-primary-fixed/40'
+                : 'bg-primary-fixed/10'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Current week theme */}
+      <div className="mb-4">
+        <h4 className="text-on-surface font-headline font-bold text-sm mb-1">
+          {currentWeek.theme}
+        </h4>
+        <p className="text-on-surface-variant text-xs leading-relaxed">
+          {currentWeek.description}
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-4">
+        <div className="flex justify-between mb-1">
+          <span className="text-on-surface-variant text-[10px] uppercase tracking-widest font-bold">
+            {sv ? 'Framsteg' : 'Progress'}
+          </span>
+          <span className="text-primary-fixed text-[10px] font-bold">
+            {completedCount}/{totalCount}
+          </span>
+        </div>
+        <div className="h-1.5 bg-primary-fixed/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary-fixed rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Drills */}
+      <div className="space-y-2 mb-4">
+        {currentWeek.drills.map((drill, i) => (
+          <button
+            key={drill.id + i}
+            onClick={() => onToggleDrill(plan.currentWeek, i)}
+            className={`w-full flex items-start gap-3 p-3 rounded-lg transition-colors text-left group ${
+              drill.done
+                ? 'bg-primary-fixed/5 border border-primary-fixed/15'
+                : 'bg-surface-container-high hover:bg-surface-container-low border border-transparent'
+            }`}
+          >
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+              drill.done
+                ? 'border-primary-fixed bg-primary-fixed'
+                : 'border-primary-fixed/40 group-hover:border-primary-fixed'
+            }`}>
+              {drill.done && (
+                <span className="material-symbols-outlined text-on-primary-fixed text-xs">check</span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className={`text-sm font-medium block ${
+                drill.done ? 'text-primary-fixed line-through opacity-60' : 'text-on-surface'
+              }`}>
+                {drill.name}
+              </span>
+              {drill.reps && (
+                <span className="text-on-surface-variant text-[10px] block mt-0.5">{drill.reps}</span>
+              )}
+            </div>
+            {drill.intensity && (
+              <span className={`text-[9px] uppercase tracking-widest font-bold shrink-0 ${
+                intensityColor[drill.intensity] || 'text-on-surface-variant'
+              }`}>
+                {intensityLabel[drill.intensity] || drill.intensity}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Milestone */}
+      {currentWeek.milestone && (
+        <div className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-3 mb-4 flex items-start gap-2">
+          <span className="material-symbols-outlined text-primary-fixed text-sm mt-0.5">flag</span>
+          <div>
+            <span className="text-[9px] font-bold text-primary-fixed uppercase tracking-widest block mb-0.5">
+              {sv ? 'Milstolpe' : 'Milestone'}
+            </span>
+            <p className="text-on-surface text-xs">{currentWeek.milestone.text}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Advance button */}
+      {weekComplete && plan.currentWeek < plan.weeks.length - 1 && (
+        <button
+          onClick={onAdvanceWeek}
+          className="w-full py-3 rounded-lg kinetic-gradient text-on-primary-fixed font-headline font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+        >
+          <span className="material-symbols-outlined text-lg">arrow_forward</span>
+          {sv ? `Gå till Vecka ${plan.currentWeek + 2}` : `Go to Week ${plan.currentWeek + 2}`}
+        </button>
+      )}
+
+      {/* Plan info */}
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-on-surface-variant text-[9px]">
+          {sv ? `Primärt fokus: ${plan.primaryFocus}` : `Primary focus: ${plan.primaryFocus}`}
+        </span>
+        <span className="text-on-surface-variant text-[9px]">
+          {sv ? `Baseline: ${plan.baselineScore}p` : `Baseline: ${plan.baselineScore}pts`}
         </span>
       </div>
     </div>

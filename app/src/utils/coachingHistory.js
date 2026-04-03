@@ -7,6 +7,7 @@
  */
 
 import { getHistory, getSetting, setSetting } from './storage';
+import { buildPlanPrompt } from './trainingPlan';
 
 /**
  * Get coaching history summary from IndexedDB analyses
@@ -125,6 +126,14 @@ export function buildCoachingHistoryPrompt(history, language) {
   }
 
   ctx += `IMPORTANT: Reference this history in your analysis. Note improvements, recurring faults, and whether current drills are working. If a drill has been active for 3+ sessions without improvement, suggest a different approach.\n`;
+
+  // Training plan context
+  try {
+    const planCtx = buildPlanPrompt(language);
+    if (planCtx) ctx += planCtx;
+  } catch {
+    // trainingPlan module may not be available in all contexts
+  }
 
   return ctx;
 }

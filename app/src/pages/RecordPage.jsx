@@ -292,6 +292,15 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
           const { addDrill } = await import('../utils/coachingHistory.js');
           addDrill(result.recommendedDrill.id, result.recommendedDrill.reason || '');
         }
+
+        // Auto-generate training plan from analysis results
+        try {
+          const { generatePlan } = await import('../utils/trainingPlan.js');
+          const profile = (await import('../utils/storage.js')).getSetting('coaching_profile') || {};
+          generatePlan(result, profile, language);
+        } catch (planErr) {
+          console.warn('Training plan generation skipped:', planErr.message);
+        }
       }
 
       onAnalysisComplete(analysisData);
