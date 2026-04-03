@@ -144,13 +144,70 @@ Note: 2D estimates. Low-confidence values should be verified visually.
 ${sequencing ? buildSequencingCtx(sequencing) : ''}
 
 ## ANALYSIS RULES (MANDATORY)
-1. Score each category using the SCORING RUBRIC above — cite which criteria tier you're applying
-2. Calculate totalScore using the WEIGHTED AVERAGE formula (Setup 15%, Backswing 20%, Transition 25%, Impact 25%, Follow-through 15%)
+1. Score each category using the STRICT CHECKPOINT RUBRIC below
+2. Calculate totalScore using WEIGHTED AVERAGE (Setup 15%, Backswing 20%, Transition 25%, Impact 25%, Follow-through 15%)
 3. When identifying faults, use ONLY fault names from the FAULT PROFILES section
 4. When recommending drills, use ONLY drills from the DRILL LIBRARY — reference them by ID
 5. Map totalScore to handicap using the HANDICAP MAP
-6. Reference specific frame numbers and checkpoints from the framework
+6. Reference specific frame numbers in evidence
 7. For each category, list which checkpoints are MET and which are MISSED
+
+## STRICT SCORING RUBRIC — CHECKPOINT-BASED (5 checkpoints per category, 20 points each)
+
+### Setup (5 checkpoints × 20 = 100):
+1. Grip: neutral, V's pointing to trail shoulder
+2. Stance: shoulder width, ball position correct for club
+3. Posture: spine tilt 35-45°, arms hanging naturally
+4. Alignment: feet/hips/shoulders parallel to target line
+5. Weight: 50-50 distribution, balanced over balls of feet
+
+### Backswing (5 checkpoints × 20 = 100):
+1. Takeaway: one-piece, club on plane, no early wrist set
+2. Halfway back: shaft parallel to target line, toe pointing up
+3. Top: lead arm extended, wrist hinged 90°, club parallel to target
+4. Shoulder turn: 80-100° turn with stable lower body
+5. Spine angle: maintained from address (< 5° change)
+
+### Transition & Downswing (5 checkpoints × 20 = 100):
+1. Sequence: lower body initiates before upper body
+2. Lag: wrist angle maintained or increased entering downswing
+3. Club path: approaches from inside (not over-the-top)
+4. Hip rotation: hips 30-50° open at impact approach
+5. Shaft: drops into slot, on or below backswing plane
+
+### Impact (5 checkpoints × 20 = 100):
+1. Hands ahead: shaft leaning forward (6-18° forward lean)
+2. Hips open: 30-50° open at impact
+3. Weight forward: 70-80% on lead foot
+4. Head behind ball: stable head position, slight trail tilt
+5. Lead arm: extended (not chicken wing), connection maintained
+
+### Follow-through & Finish (5 checkpoints × 20 = 100):
+1. Extension: both arms extended post-impact
+2. Rotation: chest facing target at finish
+3. Balance: held finish position for 2+ seconds
+4. Weight: 90%+ on lead foot, trail toe only touching
+5. Club: finishes behind head/neck, not wrapped around body
+
+→ SCORING: checkpoints_met × 20 (minimum 10)
+
+## SCORE ANCHORING RULES — CRITICAL
+DO NOT cluster scores between 65-75. Use the FULL range:
+- 90-100: Tour-level execution. 5/5 checkpoints met.
+- 80-89: Strong amateur. 4/5 checkpoints met.
+- 70-79: Mid-handicapper. 3/5 checkpoints met.
+- 60-69: High handicapper. 2-3/5 met, 1 major fault.
+- 50-59: Beginner+. 1-2/5 met, multiple faults.
+- 30-49: Beginner. Fundamental issues.
+- 10-29: First-time golfer.
+
+ANCHORING: 2+ major faults → totalScore MUST be < 70.
+Only 1 minor fault → 75-85. No visible faults → 85+.
+
+## FAULT SEVERITY
+- "critical" fault: −8 to −15 from affected category
+- "major" fault: −5 to −10 from affected category
+- "moderate" fault: −3 to −5 from affected category
 
 ## RESPONSE FORMAT
 Valid JSON only — no markdown, no code fences:
@@ -165,63 +222,20 @@ Valid JSON only — no markdown, no code fences:
   },
   "faultsDetected": [
     {
-      "id": "<fault profile ID, e.g. 'over_the_top'>",
+      "id": "<fault profile ID>",
+      "severity": "<critical|major|moderate>",
       "confidence": "<high/medium/low>",
-      "evidence": "<what you see in the frames>"
+      "evidence": "<specific frame ref + what you see>",
+      "fault": "<human readable name>"
     }
   ],
-  "tempo": "<assessment: backswing-to-downswing ratio, transition smoothness, sequencing>",
+  "tempo": "<assessment: ratio, transition smoothness, sequencing>",
   "categories": [
-    {
-      "name": "Setup",
-      "score": <0-100, citing rubric tier>,
-      "status": "correct" | "improve",
-      "analysis": "<reference checkpoints met/missed from framework>",
-      "tips": ["<specific, actionable tips>"],
-      "keyFrame": <1-8>,
-      "checkpointsMet": ["<list of met checkpoints>"],
-      "checkpointsMissed": ["<list of missed checkpoints>"]
-    },
-    {
-      "name": "Backswing",
-      "score": <0-100>,
-      "status": "correct" | "improve",
-      "analysis": "<string>",
-      "tips": ["<tip>"],
-      "keyFrame": <1-8>,
-      "checkpointsMet": [],
-      "checkpointsMissed": []
-    },
-    {
-      "name": "Transition & Downswing",
-      "score": <0-100>,
-      "status": "correct" | "improve",
-      "analysis": "<string>",
-      "tips": ["<tip>"],
-      "keyFrame": <1-8>,
-      "checkpointsMet": [],
-      "checkpointsMissed": []
-    },
-    {
-      "name": "Impact",
-      "score": <0-100>,
-      "status": "correct" | "improve",
-      "analysis": "<string>",
-      "tips": ["<tip>"],
-      "keyFrame": <1-8>,
-      "checkpointsMet": [],
-      "checkpointsMissed": []
-    },
-    {
-      "name": "Follow-through & Finish",
-      "score": <0-100>,
-      "status": "correct" | "improve",
-      "analysis": "<string>",
-      "tips": ["<tip>"],
-      "keyFrame": <1-8>,
-      "checkpointsMet": [],
-      "checkpointsMissed": []
-    }
+    {"name": "Setup", "score": <0-100>, "status": "correct|improve", "analysis": "<ref checkpoints>", "tips": ["<tip>"], "keyFrame": <1-8>, "checkpointsMet": ["<description>"], "checkpointsMissed": ["<description>"]},
+    {"name": "Backswing", "score": <0-100>, "status": "correct|improve", "analysis": "<string>", "tips": ["<tip>"], "keyFrame": <1-8>, "checkpointsMet": ["<description>"], "checkpointsMissed": ["<description>"]},
+    {"name": "Transition & Downswing", "score": <0-100>, "status": "correct|improve", "analysis": "<string>", "tips": ["<tip>"], "keyFrame": <1-8>, "checkpointsMet": ["<description>"], "checkpointsMissed": ["<description>"]},
+    {"name": "Impact", "score": <0-100>, "status": "correct|improve", "analysis": "<string>", "tips": ["<tip>"], "keyFrame": <1-8>, "checkpointsMet": ["<description>"], "checkpointsMissed": ["<description>"]},
+    {"name": "Follow-through & Finish", "score": <0-100>, "status": "correct|improve", "analysis": "<string>", "tips": ["<tip>"], "keyFrame": <1-8>, "checkpointsMet": ["<description>"], "checkpointsMissed": ["<description>"]}
   ],
   "biomechanics": {
     "hipOpenAtImpact": <estimated degrees hip is open at impact, number>,
@@ -235,7 +249,9 @@ Valid JSON only — no markdown, no code fences:
 
 ## CRITICAL
 - Status is "correct" if score >= 70, "improve" if < 70
-- For biomechanics: estimate values as accurately as possible from the visual frames. If you cannot estimate a value, omit that key. Use numbers only (no strings, no degree symbols).
+- For biomechanics: estimate as accurately as possible. Omit if uncertain. Numbers only.
+- EVERY checkpointsMet and checkpointsMissed MUST have at least 1 entry.
+- FAULT IDs must match: over_the_top, reverse_pivot, casting, chicken_wing, early_extension, sway, loss_of_posture, flat_backswing, slice, hook, fat_shots, thin_top, deceleration
 - ${langInstruction}
 - Available drill IDs: ${drillIds.join(', ')}`;
 
