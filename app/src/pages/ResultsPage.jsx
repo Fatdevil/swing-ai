@@ -7,6 +7,7 @@ import MetricsPanel from '../components/MetricsPanel';
 import { generateScoreCard, shareImage } from '../utils/shareCard';
 import SequencingPanel from '../components/SequencingPanel';
 import TempoPanel from '../components/TempoPanel';
+import { getScoreGrade, TOUR_BENCHMARKS } from '../utils/swingScore';
 
 export default function ResultsPage({ data, onBack }) {
   const { t, language } = useLanguage();
@@ -104,18 +105,40 @@ export default function ResultsPage({ data, onBack }) {
 
       {/* Score Gauge */}
       <div className="flex flex-col items-center">
-        <div className="relative w-48 h-48 mb-6">
+        <div className="relative w-48 h-48 mb-4">
           <ScoreGauge score={totalScore} size={192} />
           <div className="absolute inset-0 flex items-center justify-center flex-col">
             <span className={`text-5xl font-black font-headline ${getScoreColor(totalScore)} drop-shadow-[0_0_15px_rgba(157,255,0,0.3)]`}>
               {totalScore}
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">
+            {data.deltas?.total != null && data.deltas.total !== 0 && (
+              <span className={`text-xs font-bold flex items-center gap-0.5 ${
+                data.deltas.total > 0 ? 'text-primary-fixed' : 'text-red-400'
+              }`}>
+                <span className="material-symbols-outlined text-sm">
+                  {data.deltas.total > 0 ? 'trending_up' : 'trending_down'}
+                </span>
+                {data.deltas.total > 0 ? '+' : ''}{data.deltas.total}
+              </span>
+            )}
+            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-0.5">
               {t('swingScore')}
             </span>
           </div>
           <div className="absolute -inset-4 bg-primary-fixed/10 rounded-full blur-2xl opacity-50 -z-10" />
         </div>
+
+        {/* Personal Best Badge */}
+        {data.newRecords?.includes('total') && (
+          <div className="flex items-center gap-1.5 px-4 py-1.5 bg-amber-500/10 rounded-full border border-amber-500/20 mb-3 animate-bounce">
+            <span className="text-sm">🏆</span>
+            <span className="text-amber-400 text-[10px] font-bold uppercase tracking-widest">
+              {language === 'sv' ? 'Nytt personbästa!' : 'New Personal Best!'}
+            </span>
+          </div>
+        )}
+
+        {/* Handicap Estimate */}
         {coaching.estimatedHandicap && (
           <div className="bg-surface-container-high px-5 py-2 rounded-full border border-outline-variant/15">
             <span className="text-on-surface-variant text-xs font-medium">
@@ -124,6 +147,107 @@ export default function ResultsPage({ data, onBack }) {
           </div>
         )}
       </div>
+
+      {/* 3-Pillar Score Breakdown */}
+      {data.swingScore && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-fixed text-lg">insights</span>
+            <h3 className="font-headline font-bold text-sm text-on-surface-variant uppercase tracking-wider">
+              {language === 'sv' ? 'Score-analys' : 'Score Breakdown'}
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {/* Position Pillar */}
+            <PillarCard
+              icon="🎯"
+              label={language === 'sv' ? 'Position' : 'Position'}
+              score={data.swingScore.position.score}
+              weight="50%"
+              delta={data.deltas?.position}
+              isRecord={data.newRecords?.includes('position')}
+              language={language}
+            />
+            {/* Motion Pillar */}
+            <PillarCard
+              icon="⚡"
+              label={language === 'sv' ? 'Rörelse' : 'Motion'}
+              score={data.swingScore.motion.score}
+              weight="30%"
+              delta={data.deltas?.motion}
+              isRecord={data.newRecords?.includes('motion')}
+              language={language}
+            />
+            {/* Mechanics Pillar */}
+            <PillarCard
+              icon="📐"
+              label={language === 'sv' ? 'Mekanik' : 'Mechanics'}
+              score={data.swingScore.mechanics.score}
+              weight="20%"
+              delta={data.deltas?.mechanics}
+              isRecord={data.newRecords?.includes('mechanics')}
+              language={language}
+            />
+          </div>
+
+          {/* Biomechanics Sub-Scores */}
+          <div className="bg-surface-container rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary-fixed text-sm">straighten</span>
+              <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest">
+                {language === 'sv' ? 'Biomekanik-detaljer' : 'Biomechanics Details'}
+              </span>
+            </div>
+            {Object.entries(data.swingScore.biomechanicsBreakdown).map(([key, metric]) => {
+              if (metric.score == null) return null;
+              const tour = metric.tour;
+              const delta = data.deltas?.biomechanics?.[key];
+              return (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-on-surface text-xs font-medium">
+                      {tour?.label?.[language] || key}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {metric.value != null && (
+                        <span className="text-on-surface-variant text-[10px]">
+                          {typeof metric.value === 'number' ? metric.value.toFixed(1) : metric.value}{tour?.unit || ''}
+                        </span>
+                      )}
+                      <span className={`text-xs font-bold ${
+                        metric.score >= 80 ? 'text-primary-fixed' : metric.score >= 60 ? 'text-amber-400' : 'text-red-400'
+                      }`}>
+                        {Math.round(metric.score)}
+                      </span>
+                      {delta != null && delta !== 0 && (
+                        <span className={`text-[9px] font-bold ${delta > 0 ? 'text-primary-fixed' : 'text-red-400'}`}>
+                          {delta > 0 ? '+' : ''}{Math.round(delta)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-primary-fixed/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          metric.score >= 80 ? 'bg-primary-fixed' : metric.score >= 60 ? 'bg-amber-400' : 'bg-red-400'
+                        }`}
+                        style={{ width: `${metric.score}%` }}
+                      />
+                    </div>
+                    {tour && (
+                      <span className="text-on-surface-variant/40 text-[8px] shrink-0">
+                        Tour: {tour.value}{tour.unit}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Frame Browser */}
       {hasFrames && (
@@ -430,6 +554,36 @@ function CategoryCard({ category, index, t, language, hasFrames, expanded, onCli
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Pillar Score Card ───────────────────────────────────────
+
+function PillarCard({ icon, label, score, weight, delta, isRecord, language }) {
+  const sv = language === 'sv';
+  const scoreColor = score >= 80 ? 'text-primary-fixed' : score >= 60 ? 'text-amber-400' : 'text-red-400';
+  const barColor = score >= 80 ? 'bg-primary-fixed' : score >= 60 ? 'bg-amber-400' : 'bg-red-400';
+
+  return (
+    <div className="bg-surface-container rounded-lg p-3 text-center relative overflow-hidden">
+      {isRecord && (
+        <div className="absolute top-1 right-1">
+          <span className="text-[10px]">🏆</span>
+        </div>
+      )}
+      <span className="text-lg block mb-1">{icon}</span>
+      <span className={`text-2xl font-black font-headline ${scoreColor} block`}>{score}</span>
+      {delta != null && delta !== 0 && (
+        <span className={`text-[9px] font-bold ${delta > 0 ? 'text-primary-fixed' : 'text-red-400'}`}>
+          {delta > 0 ? '↑' : '↓'}{Math.abs(delta)}
+        </span>
+      )}
+      <span className="text-on-surface-variant text-[9px] font-bold uppercase tracking-widest block mt-1">{label}</span>
+      <div className="h-1 bg-primary-fixed/10 rounded-full overflow-hidden mt-2">
+        <div className={`h-full ${barColor} rounded-full transition-all duration-700`} style={{ width: `${score}%` }} />
+      </div>
+      <span className="text-on-surface-variant/30 text-[8px] mt-1 block">{weight}</span>
     </div>
   );
 }

@@ -301,6 +301,24 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
         } catch (planErr) {
           console.warn('Training plan generation skipped:', planErr.message);
         }
+
+        // Calculate Swing Score v2 (formula-based)
+        try {
+          const { calculateSwingScore, checkPersonalBests, calculateDeltas } = await import('../utils/swingScore.js');
+          const mediapipeData = poseResults?.[0]?.measurements || null;
+          const swingScoreV2 = calculateSwingScore(result, mediapipeData, sequencingData);
+          const { newRecords, personalBests } = checkPersonalBests(swingScoreV2);
+          const deltas = await calculateDeltas(swingScoreV2);
+
+          // Attach to analysis data
+          analysisData.swingScore = swingScoreV2;
+          analysisData.totalScore = swingScoreV2.totalScore;
+          analysisData.newRecords = newRecords;
+          analysisData.personalBests = personalBests;
+          analysisData.deltas = deltas;
+        } catch (scoreErr) {
+          console.warn('Swing Score v2 calculation skipped:', scoreErr.message);
+        }
       }
 
       onAnalysisComplete(analysisData);
