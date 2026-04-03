@@ -200,9 +200,23 @@ app.post('/api/analyze', async (req, res) => {
 
     // ── BASIC TIER: Gemini full analysis only ──
     if (tier === 'basic') {
-      if (!hasGemini || !video) {
-        return res.status(400).json({ error: 'Basic tier requires Gemini API key and video' });
+      if (!hasGemini) {
+        return res.status(400).json({ error: 'Basic tier requires a Gemini API key. Set GEMINI_API_KEY in environment.' });
       }
+      if (!video) {
+        // No video available — auto-fallback to Claude frame analysis if available
+        if (hasAnthropic && frames.length > 0) {
+          console.log('[analyze] Basic tier: no video, auto-fallback to premium (Claude frames)');
+          tier = 'premium';
+          // Fall through to premium tier below
+        } else {
+          return res.status(400).json({ error: 'No video data received. Please re-record or upload your swing video.' });
+        }
+      }
+    }
+
+    // ── BASIC TIER (with video) ──
+    if (tier === 'basic') {
 
       try {
         geminiResult = await analyzeFullSwing(video, cameraAngle, language, knowledgeBase);

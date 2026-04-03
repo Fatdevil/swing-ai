@@ -189,6 +189,15 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     setStep('coaching');
     setError(null);
 
+    // Guard: basic tier requires video file
+    if (tier === 'basic' && !videoFile) {
+      setError(language === 'sv'
+        ? 'Videon saknas — spela in eller ladda upp en ny video innan analys.'
+        : 'Video missing — record or upload a new video before analysis.');
+      setStep('coaching_error');
+      return;
+    }
+
     // Tier-aware progress messages with percentage targets
     const progressSteps = tier === 'premium'
       ? [
