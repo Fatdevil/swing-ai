@@ -3,6 +3,10 @@ import { DRILL_LIBRARY } from '../utils/golfKnowledge';
 import { getCoachingHistory, completeDrill, reactivateDrill, getDrillLog } from '../utils/coachingHistory';
 import { COACHING_APPROACHES, REFERENCE_PLAYERS, COACH_PERSONALITIES } from '../utils/referencePlayers';
 import { getActivePlan, toggleDrillDone, advanceWeek, goToWeek } from '../utils/trainingPlan';
+import {
+  getSwingThought, setSwingThought as saveSwingThought, clearSwingThought,
+  getJournalEntries, addJournalEntry, updateJournalEntry, deleteJournalEntry, togglePinEntry,
+} from '../utils/swingJournal';
 import { setSetting } from '../utils/storage';
 import CoachChat from './CoachChat';
 
@@ -44,6 +48,10 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
     }
     setLoading(false);
   }
+
+  // Journal reload helper
+  const [journalKey, setJournalKey] = useState(0);
+  const reloadJournal = () => setJournalKey(k => k + 1);
 
   function handleToggleDrill(drillId, currentStatus) {
     if (currentStatus === 'active') {
@@ -320,6 +328,14 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
           }}
         />
       )}
+
+      {/* Swing Journal — Player's own notes */}
+      <SwingJournalCard
+        sv={sv}
+        language={language}
+        key={`journal-${journalKey}`}
+        onUpdate={reloadJournal}
+      />
 
       {/* Drill Log */}
       {(activeDrills.length > 0 || completedDrills.length > 0) && (
@@ -722,6 +738,263 @@ function TrainingPlanCard({ plan, sv, language, onToggleDrill, onAdvanceWeek, on
           {sv ? `Baseline: ${plan.baselineScore}p` : `Baseline: ${plan.baselineScore}pts`}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ─── Swing Journal Card ──────────────────────────────────────
+
+function SwingJournalCard({ sv, language, onUpdate }) {
+  const [thought, setThought] = useState(getSwingThought());
+  const [entries, setEntries] = useState(getJournalEntries());
+  const [thoughtInput, setThoughtInput] = useState(thought?.text || '');
+  const [editingThought, setEditingThought] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [noteType, setNoteType] = useState('note');
+  const [showAll, setShowAll] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+
+  const reload = () => {
+    setThought(getSwingThought());
+    setEntries(getJournalEntries());
+    onUpdate?.();
+  };
+
+  const handleSaveThought = () => {
+    if (thoughtInput.trim()) {
+      saveSwingThought(thoughtInput.trim());
+    } else {
+      clearSwingThought();
+    }
+    setEditingThought(false);
+    reload();
+  };
+
+  const handleAddNote = () => {
+    if (!newNote.trim()) return;
+    addJournalEntry(newNote, { type: noteType });
+    setNewNote('');
+    reload();
+  };
+
+  const handleDelete = (id) => {
+    deleteJournalEntry(id);
+    reload();
+  };
+
+  const handlePin = (id) => {
+    togglePinEntry(id);
+    reload();
+  };
+
+  const handleEditSave = (id) => {
+    if (editText.trim()) {
+      updateJournalEntry(id, editText);
+    }
+    setEditingId(null);
+    setEditText('');
+    reload();
+  };
+
+  const typeEmoji = { note: '📝', feel: '💭', insight: '💡' };
+  const typeLabel = {
+    note: sv ? 'Notering' : 'Note',
+    feel: sv ? 'Känsla' : 'Feel',
+    insight: sv ? 'Insikt' : 'Insight',
+  };
+
+  const visibleEntries = showAll ? entries : entries.slice(0, 3);
+
+  return (
+    <div className="bg-surface-container p-5 rounded-lg kinetic-gradient-border">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="material-symbols-outlined text-primary-fixed text-lg">edit_note</span>
+        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest font-headline">
+          {sv ? 'Swing Journal' : 'Swing Journal'}
+        </span>
+        <span className="text-on-surface-variant/40 text-[9px] ml-auto italic">
+          {sv ? '"Feel vs Real"' : '"Feel vs Real"'}
+        </span>
+      </div>
+
+      {/* Active Swing Thought — the mantra */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[9px] font-bold text-primary-fixed uppercase tracking-widest">
+            🎯 {sv ? 'Aktiv svingtanke' : 'Active swing thought'}
+          </span>
+        </div>
+
+        {editingThought ? (
+          <div className="flex gap-2">
+            <input
+              value={thoughtInput}
+              onChange={e => setThoughtInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSaveThought()}
+              placeholder={sv ? 'T.ex. "Långsam takeaway, känn lagen"' : 'E.g. "Slow takeaway, feel the lag"'}
+              className="flex-1 bg-surface-container-highest text-on-surface text-xs rounded-lg px-3 py-2.5 outline-none placeholder:text-on-surface-variant/40 border border-primary-fixed/20 focus:border-primary-fixed/50 transition-colors"
+              autoFocus
+            />
+            <button
+              onClick={handleSaveThought}
+              className="px-3 py-2 rounded-lg bg-primary-fixed text-on-primary-fixed text-xs font-bold active:scale-95 transition-transform"
+            >
+              {sv ? 'Spara' : 'Save'}
+            </button>
+            <button
+              onClick={() => { setEditingThought(false); setThoughtInput(thought?.text || ''); }}
+              className="px-2 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest text-xs transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditingThought(true)}
+            className="w-full text-left p-3 rounded-lg border border-dashed border-primary-fixed/20 hover:border-primary-fixed/40 hover:bg-primary-fixed/5 transition-all group"
+          >
+            {thought ? (
+              <div className="flex items-center justify-between">
+                <span className="text-on-surface text-sm font-medium italic">"{thought.text}"</span>
+                <span className="material-symbols-outlined text-on-surface-variant text-sm opacity-0 group-hover:opacity-100 transition-opacity">edit</span>
+              </div>
+            ) : (
+              <span className="text-on-surface-variant/40 text-xs">
+                {sv ? 'Tryck för att sätta din svingtanke...' : 'Tap to set your swing thought...'}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Add new note */}
+      <div className="mb-4">
+        <div className="flex gap-2 mb-2">
+          {Object.entries(typeLabel).map(([type, label]) => (
+            <button
+              key={type}
+              onClick={() => setNoteType(type)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                noteType === type
+                  ? 'bg-primary-fixed text-on-primary-fixed'
+                  : 'bg-primary-fixed/8 text-on-surface-variant hover:bg-primary-fixed/15'
+              }`}
+            >
+              {typeEmoji[type]} {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newNote}
+            onChange={e => setNewNote(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+            placeholder={
+              noteType === 'feel'
+                ? (sv ? 'Vad kände du? T.ex. "Känslan av att trycka ner vänster fot"' : 'What did you feel?')
+                : noteType === 'insight'
+                ? (sv ? 'Din insikt... T.ex. "Pumpövningen fixade min transition"' : 'Your insight...')
+                : (sv ? 'Notera något... T.ex. "7-järnet drar åt vänster idag"' : 'Write a note...')
+            }
+            className="flex-1 bg-surface-container-highest text-on-surface text-xs rounded-lg px-3 py-2.5 outline-none placeholder:text-on-surface-variant/40 border border-outline-variant/10 focus:border-primary-fixed/30 transition-colors"
+          />
+          <button
+            onClick={handleAddNote}
+            disabled={!newNote.trim()}
+            className="w-9 h-9 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center disabled:opacity-30 active:scale-90 transition-all shrink-0"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Journal entries */}
+      {entries.length > 0 ? (
+        <div className="space-y-2">
+          {visibleEntries.map(entry => (
+            <div
+              key={entry.id}
+              className={`p-3 rounded-lg border transition-colors ${
+                entry.pinned
+                  ? 'border-amber-500/20 bg-amber-500/5'
+                  : 'border-outline-variant/5 bg-surface-container-high'
+              }`}
+            >
+              {editingId === entry.id ? (
+                <div className="flex gap-2">
+                  <input
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleEditSave(entry.id)}
+                    className="flex-1 bg-surface-container-highest text-on-surface text-xs rounded-lg px-3 py-2 outline-none border border-primary-fixed/20"
+                    autoFocus
+                  />
+                  <button onClick={() => handleEditSave(entry.id)} className="text-primary-fixed text-xs font-bold">
+                    {sv ? 'Spara' : 'Save'}
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="text-on-surface-variant text-xs">✕</button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start gap-2">
+                    <span className="text-sm shrink-0 mt-0.5">{typeEmoji[entry.type] || '📝'}</span>
+                    <p className="text-on-surface text-xs leading-relaxed flex-1">{entry.text}</p>
+                    {entry.pinned && <span className="text-amber-400 text-xs shrink-0">⭐</span>}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-on-surface-variant text-[9px]">
+                      {new Date(entry.timestamp).toLocaleDateString(sv ? 'sv-SE' : 'en-US', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handlePin(entry.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-highest transition-colors"
+                        title={entry.pinned ? (sv ? 'Avfäst' : 'Unpin') : (sv ? 'Fäst' : 'Pin')}
+                      >
+                        <span className={`material-symbols-outlined text-xs ${entry.pinned ? 'text-amber-400' : 'text-on-surface-variant/40'}`}>
+                          push_pin
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(entry.id); setEditText(entry.text); }}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-highest transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-xs text-on-surface-variant/40">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/10 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-xs text-on-surface-variant/40 hover:text-red-400">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+
+          {entries.length > 3 && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="w-full text-center text-primary-fixed text-[10px] font-bold uppercase tracking-widest py-2 hover:bg-primary-fixed/5 rounded-lg transition-colors"
+            >
+              {showAll
+                ? (sv ? 'Visa färre' : 'Show less')
+                : (sv ? `Visa alla (${entries.length})` : `Show all (${entries.length})`)
+              }
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="text-on-surface-variant/40 text-xs text-center py-2">
+          {sv ? 'Inga noteringar ännu. Börja dokumentera din resa!' : 'No notes yet. Start documenting your journey!'}
+        </p>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@
 
 import { getHistory, getSetting, setSetting } from './storage';
 import { buildPlanPrompt } from './trainingPlan';
+import { buildJournalPrompt } from './swingJournal';
 
 /**
  * Get coaching history summary from IndexedDB analyses
@@ -133,6 +134,14 @@ export function buildCoachingHistoryPrompt(history, language) {
     if (planCtx) ctx += planCtx;
   } catch {
     // trainingPlan module may not be available in all contexts
+  }
+
+  // Swing journal — player's own notes and swing thoughts
+  try {
+    const journalCtx = buildJournalPrompt(language);
+    if (journalCtx) ctx += journalCtx;
+  } catch {
+    // swingJournal module may not be available
   }
 
   return ctx;
