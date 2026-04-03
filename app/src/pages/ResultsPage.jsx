@@ -294,28 +294,49 @@ export default function ResultsPage({ data, onBack }) {
       {/* Faults Detected */}
       {faults.length > 0 && (
         <section className="space-y-3">
-          <h3 className="font-headline font-bold text-error flex items-center gap-2">
-            <span className="material-symbols-outlined">warning</span>
-            {language === 'sv' ? 'Identifierade svingfel' : 'Detected Swing Faults'}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline font-bold text-error flex items-center gap-2">
+              <span className="material-symbols-outlined">warning</span>
+              {language === 'sv' ? 'Identifierade svingfel' : 'Detected Swing Faults'}
+            </h3>
+            <span className="text-on-surface-variant text-[10px] font-bold">
+              {faults.length} {language === 'sv' ? 'fel' : 'fault'}{faults.length !== 1 ? 's' : ''}
+            </span>
+          </div>
           <div className="space-y-2">
-            {faults.map((fault, i) => (
-              <div key={i} className="bg-error/5 border border-error/15 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-error font-bold text-sm">
-                    {fault.id?.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </span>
-                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                    fault.confidence === 'high'
-                      ? 'bg-error/20 text-error'
-                      : 'bg-outline-variant/20 text-on-surface-variant'
-                  }`}>
-                    {fault.confidence}
-                  </span>
+            {faults.map((fault, i) => {
+              const severityConfig = {
+                critical: { bg: 'bg-red-500/10', border: 'border-red-500/20', badge: 'bg-red-500/20 text-red-400', icon: 'error' },
+                major:    { bg: 'bg-amber-500/10', border: 'border-amber-500/20', badge: 'bg-amber-500/20 text-amber-400', icon: 'warning' },
+                moderate: { bg: 'bg-blue-400/10', border: 'border-blue-400/20', badge: 'bg-blue-400/20 text-blue-400', icon: 'info' },
+              };
+              const sev = severityConfig[fault.severity] || severityConfig.major;
+              return (
+                <div key={i} className={`${sev.bg} border ${sev.border} rounded-lg p-4`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`material-symbols-outlined text-sm ${sev.badge.split(' ')[1]}`}>{sev.icon}</span>
+                      <span className="text-on-surface font-bold text-sm">
+                        {fault.fault || fault.id?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${sev.badge}`}>
+                        {fault.severity || 'major'}
+                      </span>
+                      {fault.confidence && (
+                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                          fault.confidence === 'high' ? 'bg-primary-fixed/10 text-primary-fixed' : 'bg-outline-variant/15 text-on-surface-variant'
+                        }`}>
+                          {fault.confidence}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-on-surface-variant text-xs leading-relaxed">{fault.evidence}</p>
                 </div>
-                <p className="text-on-surface-variant text-xs">{fault.evidence}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -478,7 +499,7 @@ function CategoryCard({ category, index, t, language, hasFrames, expanded, onCli
     <div className="bg-surface-container rounded-lg border border-outline-variant/10 overflow-hidden transition-all">
       <button
         onClick={onClick}
-        className="w-full p-6 text-left hover:bg-surface-container-high/30 transition-all"
+        className="w-full p-5 text-left hover:bg-surface-container-high/30 transition-all"
       >
         <div className="flex items-start gap-4">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -489,27 +510,35 @@ function CategoryCard({ category, index, t, language, hasFrames, expanded, onCli
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
-                <h4 className="font-headline font-bold text-on-surface">{category.name}</h4>
+                <h4 className="font-headline font-bold text-on-surface text-sm">{category.name}</h4>
                 {category.keyFrame && hasFrames && (
-                  <span className="text-[9px] text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-full">
-                    Frame {category.keyFrame}
+                  <span className="text-[8px] text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded">
+                    F{category.keyFrame}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                  isGood ? 'bg-primary-fixed/10 text-primary-fixed' : 'bg-error/10 text-error'
-                }`}>
-                  {isGood ? t('correct') : t('improve')}
+                {/* Checkpoint count */}
+                <span className="text-[9px] text-on-surface-variant">
+                  {checksMet.length}/{checksMet.length + checksMissed.length} ✓
                 </span>
-                <span className={`font-headline font-bold text-lg ${isGood ? 'text-primary-fixed' : 'text-error'}`}>
+                <span className={`font-headline font-black text-xl ${isGood ? 'text-primary-fixed' : 'text-error'}`}>
                   {category.score}
                 </span>
               </div>
             </div>
-            <p className="text-on-surface-variant text-sm leading-relaxed">{category.analysis}</p>
+            {/* Score bar */}
+            <div className="h-1 bg-primary-fixed/8 rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${
+                  category.score >= 80 ? 'bg-primary-fixed' : category.score >= 60 ? 'bg-amber-400' : 'bg-red-400'
+                }`}
+                style={{ width: `${category.score}%` }}
+              />
+            </div>
+            <p className="text-on-surface-variant text-xs leading-relaxed line-clamp-2">{category.analysis}</p>
           </div>
         </div>
       </button>
@@ -534,19 +563,28 @@ function CategoryCard({ category, index, t, language, hasFrames, expanded, onCli
 
           {/* Checkpoints */}
           {(checksMet.length > 0 || checksMissed.length > 0) && (
-            <div className="space-y-3">
-              <p className="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                {language === 'sv' ? 'Kontrollpunkter' : 'Checkpoints'}
-              </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                  {language === 'sv' ? 'Kontrollpunkter' : 'Checkpoints'}
+                </p>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  checksMet.length >= 4 ? 'bg-primary-fixed/10 text-primary-fixed'
+                  : checksMet.length >= 3 ? 'bg-amber-400/10 text-amber-400'
+                  : 'bg-red-400/10 text-red-400'
+                }`}>
+                  {checksMet.length}/{checksMet.length + checksMissed.length} = {checksMet.length * 20}pts
+                </span>
+              </div>
               {checksMet.map((cp, i) => (
                 <div key={`met-${i}`} className="flex items-start gap-2 text-xs">
-                  <span className="material-symbols-outlined text-primary-fixed text-sm mt-0.5">check_circle</span>
-                  <span className="text-on-surface-variant">{cp}</span>
+                  <span className="material-symbols-outlined text-primary-fixed text-sm mt-0.5 shrink-0">check_circle</span>
+                  <span className="text-on-surface">{cp}</span>
                 </div>
               ))}
               {checksMissed.map((cp, i) => (
                 <div key={`missed-${i}`} className="flex items-start gap-2 text-xs">
-                  <span className="material-symbols-outlined text-error text-sm mt-0.5">cancel</span>
+                  <span className="material-symbols-outlined text-red-400 text-sm mt-0.5 shrink-0">cancel</span>
                   <span className="text-on-surface-variant">{cp}</span>
                 </div>
               ))}
