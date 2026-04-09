@@ -142,6 +142,8 @@ DO NOT cluster scores between 65-75. Use the FULL range:
 - 30-49: Beginner. Fundamental issues, needs significant rebuild.
 - 10-29: First-time golfer. Most basics missing.
 
+
+
 ANCHORING: If you find 2+ major faults, totalScore MUST be < 70.
 If only 1 minor fault, totalScore should be 75-85.
 A clean swing with no visible faults should score 85+.
@@ -157,7 +159,11 @@ Valid JSON only — no markdown, no code fences:
 {
   "totalScore": <0-100>,
   "estimatedHandicap": "<handicap range>",
-  "priorityFocus": "<single most impactful fault>",
+  "causalChain": {
+    "rootCause": "<what the body physically did wrong>",
+    "biomechanicalEffect": "<how this altered the club dynamics/path>",
+    "ballFlight": "<the inevitable outcome on the ball flight>"
+  },
   "recommendedDrill": {
     "id": "<drill ID, e.g. 'pump_drill'>",
     "reason": "<why this drill>"
@@ -255,7 +261,11 @@ Valid JSON only:
 {
   "totalScore": <average of motion grade and position score, 0-100>,
   "estimatedHandicap": "<from position analysis>",
-  "priorityFocus": "<the SINGLE most important thing to fix — explain WHY using both analyses>",
+  "causalChain": {
+    "rootCause": "<what the body did wrong mechanically, citing both motion and position data>",
+    "biomechanicalEffect": "<how this root cause forced the club path or face to change incorrectly>",
+    "ballFlight": "<the inevitable outcome on the ball flight>"
+  },
   "recommendedDrill": ${JSON.stringify(claudeResult?.recommendedDrill || { id: 'pump_drill', reason: '' })},
   "faultsDetected": [
     {
@@ -306,4 +316,40 @@ CRITICAL:
 
   const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(jsonStr);
+}
+
+// ─── CRITICAL: Do not export callClaudeAPI since it was removed ────
+
+export async function evaluateChallenge(frames, systemPrompt) {
+  const client = getClient();
+  
+  const formattedFrames = frames.map(f => ({
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/jpeg',
+      data: f.base64.replace(/^data:image\/\w+;base64,/, ''),
+    }
+  }));
+
+  const response = await client.messages.create({
+    model: 'claude-3-7-sonnet-20250219',
+    max_tokens: 2048,
+    system: systemPrompt,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: `Analyze these ${frames.length} sequential frames from a golf swing and score the similarity.` },
+          ...formattedFrames
+        ]
+      }
+    ]
+  });
+
+  const textContent = response.content?.find((c) => c.type === 'text')?.text || '';
+  const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('Invalid response format from Claude Vision');
+
+  return JSON.parse(jsonMatch[0]);
 }

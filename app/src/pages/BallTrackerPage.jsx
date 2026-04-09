@@ -520,7 +520,7 @@ export default function BallTrackerPage({ onBack }) {
                         {trackData.launchData.launchAngle}°
                       </p>
                       <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
-                        {t('Vinkel', 'Launch angle')}
+                        {t('Vinkel (est)', 'Launch angle (est)')}
                       </p>
                     </div>
 
@@ -540,7 +540,7 @@ export default function BallTrackerPage({ onBack }) {
                         {trackData.launchData.shotShape}
                       </p>
                       <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
-                        {t('Form', 'Shape')}
+                        {t('Form (est)', 'Shape (est)')}
                       </p>
                     </div>
 
@@ -550,7 +550,7 @@ export default function BallTrackerPage({ onBack }) {
                         {trackData.launchData.apex.heightPixels}
                       </p>
                       <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
-                        {t('Apex (px)', 'Apex (px)')}
+                        {t('Apex (px, est)', 'Apex (px, est)')}
                       </p>
                     </div>
 
@@ -560,7 +560,7 @@ export default function BallTrackerPage({ onBack }) {
                         {trackData.launchData.landing.distancePixels}
                       </p>
                       <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
-                        {t('Carry (px)', 'Carry (px)')}
+                        {t('Carry (px, est)', 'Carry (px, est)')}
                       </p>
                     </div>
 
@@ -570,7 +570,7 @@ export default function BallTrackerPage({ onBack }) {
                         {trackData.launchData.flightTime}s
                       </p>
                       <p className="text-on-surface-variant text-[9px] uppercase tracking-widest font-bold mt-1">
-                        {t('Flygtid', 'Flight time')}
+                        {t('Flygtid (est)', 'Flight time (est)')}
                       </p>
                     </div>
                   </div>

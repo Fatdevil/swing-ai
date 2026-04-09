@@ -573,6 +573,7 @@ export const DRILL_LIBRARY = {
       en: 'Take the club to the top of your backswing. Start the downswing by rotating your hips, then STOP when your hands reach hip height. Return to the top. Repeat 3 times, then complete the swing on the 4th rep. Focus: feel the hips initiate, not the arms.',
       sv: 'Ta klubban till toppen av baksvingen. Starta nedsvingen genom att rotera höfterna, STOPPA sedan när händerna når höfthöjd. Återgå till toppen. Upprepa 3 gånger, slutför svingen på 4:e repetitionen. Fokus: känn att höfterna initierar, inte armarna.',
     },
+    videoUrl: 'https://www.youtube.com/embed?listType=search&list=golf+pump+drill',
     reps: '3 pumps + 1 full swing × 10 sets',
   },
   headcover_drill: {
@@ -584,6 +585,7 @@ export const DRILL_LIBRARY = {
       en: 'Place a headcover under your trail armpit. Make practice swings without dropping it. This keeps the trail elbow connected and prevents the club from going over the top.',
       sv: 'Placera ett headcover under din bakre armhåla. Gör övningssvingar utan att tappa det. Detta håller bakre armbågen ansluten och förhindrar klubban från att gå over the top.',
     },
+    videoUrl: 'https://www.youtube.com/embed?listType=search&list=golf+headcover+drill+trail+arm',
     reps: '20 half swings, then 10 full swings',
   },
   towel_under_arm: {
@@ -595,6 +597,7 @@ export const DRILL_LIBRARY = {
       en: 'Tuck a small towel under your lead armpit. Hit balls without dropping it through impact and into follow-through. This promotes connection and prevents the chicken wing.',
       sv: 'Stoppa en liten handduk under din ledande armhåla. Slå bollar utan att tappa den genom träff och genomsving. Detta främjar anslutning och förhindrar kycklingvingen.',
     },
+    videoUrl: 'https://www.youtube.com/embed?listType=search&list=golf+towel+under+lead+arm+drill',
     reps: '20 shots with 7-iron',
   },
   wall_drill: {
@@ -606,6 +609,7 @@ export const DRILL_LIBRARY = {
       en: 'Set up with your glutes touching a wall or chair back. Make practice swings while keeping your glutes in contact throughout. If your glutes lose contact during the downswing, you are early extending.',
       sv: 'Ställ dig med sätesmuskeln mot en vägg eller stolsrygg. Gör övningssvingar medan du håller kontakten hela tiden. Om sätet tappar kontakten under nedsvingen har du tidig extension.',
     },
+    videoUrl: 'https://www.youtube.com/embed?listType=search&list=golf+chair+drill+early+extension',
     reps: '30 practice swings',
   },
   chair_drill: {

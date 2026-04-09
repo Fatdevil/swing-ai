@@ -9,6 +9,7 @@ import {
 import { REFERENCE_PLAYERS } from '../utils/referencePlayers';
 import { getSetting } from '../utils/storage';
 import { generateChallengeCard, shareImage } from '../utils/shareCard';
+import { getAuth } from 'firebase/auth';
 
 /**
  * ChallengesPage — Solo swing similarity challenges
@@ -69,16 +70,6 @@ export default function ChallengesPage({ onBack, onNavigate }) {
     const file = e.target.files?.[0];
     if (!file || !selected) return;
 
-    const apiKey = getSetting('anthropic_key');
-    if (!apiKey) {
-      setError(sv ? 'API-nyckel saknas. G\u00e5 till Profil → Inst\u00e4llningar.' : 'API key missing. Go to Profile → Settings.');
-      return;
-    }
-
-    setAnalyzing(true);
-    setError('');
-    setProgress(sv ? 'Extraherar frames...' : 'Extracting frames...');
-
     try {
       // Extract frames from video
       const { extractKeyFrames } = await import('../utils/videoFrames.js');
@@ -86,45 +77,30 @@ export default function ChallengesPage({ onBack, onNavigate }) {
 
       setProgress(sv ? 'Analyserar likhet...' : 'Analyzing similarity...');
 
-      // Build frame data for Claude
+      // Build frame data for backend
       const frameData = frames.map((frame, i) => {
         const phases = ['Setup', 'Takeaway', 'Backswing', 'Top', 'Downswing', 'Impact', 'Follow-through', 'Finish'];
         return {
           phase: phases[i] || `Frame ${i + 1}`,
           base64: frame.base64,
-          measurements: null,
         };
       });
 
-      // Call Claude with challenge-specific prompt
+      // Call backend with challenge-specific prompt
       const challengePrompt = buildChallengePrompt(selected.playerId, language);
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const auth = getAuth();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch('/api/challenge', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers,
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2048,
-          system: challengePrompt,
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: `Analyze these ${frameData.length} sequential frames from a golf swing and score the similarity to ${REFERENCE_PLAYERS[selected.playerId].name}.` },
-              ...frameData.map((f) => ({
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: 'image/jpeg',
-                  data: f.base64.replace(/^data:image\/\w+;base64,/, ''),
-                },
-              })),
-            ],
-          }],
+          frames: frameData,
+          systemPrompt: challengePrompt,
         }),
       });
 
@@ -132,14 +108,7 @@ export default function ChallengesPage({ onBack, onNavigate }) {
         throw new Error(`API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      const text = data.content?.[0]?.text || '';
-
-      // Parse JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Invalid response format');
-
-      const challengeResult = JSON.parse(jsonMatch[0]);
+      const challengeResult = await response.json();
 
       // Save result
       const saved = saveChallengeResult(selected.id, challengeResult.similarityScore);

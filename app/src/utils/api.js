@@ -5,6 +5,8 @@
  * No API keys on the client side.
  */
 
+import { getAuth } from 'firebase/auth';
+
 /**
  * Check which engines are configured on the backend
  */
@@ -43,21 +45,41 @@ export async function analyzeSwing({
   coachingHistory = '',
   tier = 'basic',
 }) {
+  const auth = getAuth();
+  const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  // We use FormData instead of JSON to send binary video files efficiently
+  // and prevent giant Base64 strings from crashing the browser/server.
+  const formData = new FormData();
+  
+  if (video) {
+    if (typeof video === 'string' && video.startsWith('data:')) {
+      // If it's still base64 (fallback), convert to Blob
+      const res = await fetch(video);
+      const blob = await res.blob();
+      formData.append('video', blob, 'swing.webm');
+    } else {
+      formData.append('video', video, 'swing.webm');
+    }
+  }
+  
+  formData.append('frames', JSON.stringify(frames));
+  formData.append('cameraAngle', cameraAngle);
+  formData.append('language', language);
+  formData.append('guestMode', guestMode.toString());
+  if (sequencing) formData.append('sequencing', JSON.stringify(sequencing));
+  formData.append('knowledgeBase', knowledgeBase);
+  formData.append('coachingProfile', coachingProfile);
+  formData.append('coachingHistory', coachingHistory);
+  formData.append('tier', tier);
+
   const response = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      video,
-      frames,
-      cameraAngle,
-      language,
-      guestMode,
-      sequencing,
-      knowledgeBase,
-      coachingProfile,
-      coachingHistory,
-      tier,
-    }),
+    headers, // Do NOT set Content-Type for FormData, browser sets it with boundary
+    body: formData,
   });
 
   if (!response.ok) {

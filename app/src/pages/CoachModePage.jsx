@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getSetting, setSetting } from '../utils/storage';
+import { getAuth } from 'firebase/auth';
 import { COACHING_APPROACHES } from '../utils/referencePlayers';
 import CoachDashboard from '../components/CoachDashboard';
 
@@ -165,18 +166,6 @@ export default function CoachModePage({ onBack, onNavigate }) {
     setStep('chat');
     setIsThinking(true);
 
-    const apiKey = getSetting('anthropic_key');
-    if (!apiKey) {
-      setChatMessages([{
-        role: 'coach',
-        text: sv
-          ? 'Du behöver lägga till din Anthropic API-nyckel i Profil-inställningarna först.'
-          : 'You need to add your Anthropic API key in Profile settings first.',
-      }]);
-      setIsThinking(false);
-      return;
-    }
-
     const approach = COACHING_APPROACHES[currentProfile.approach];
 
     const systemPrompt = `You are a PGA-certified golf coach helping a new student. You are having a brief intake conversation (2-3 exchanges max) to understand their goals and current situation.
@@ -199,23 +188,25 @@ Your task:
 Respond with ONLY your coaching message. No JSON, no formatting.`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const auth = getAuth();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers,
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: currentProfile.specificGoal }],
+          message: currentProfile.specificGoal,
+          language,
+          systemPromptOverride: systemPrompt,
         }),
       });
+
       const result = await response.json();
-      const coachText = result.content?.find((c) => c.type === 'text')?.text || '';
+      if (result.error) throw new Error(result.error);
+      
+      const coachText = result.reply || '';
       setChatMessages([
         { role: 'user', text: currentProfile.specificGoal },
         { role: 'coach', text: coachText },
@@ -237,7 +228,6 @@ Respond with ONLY your coaching message. No JSON, no formatting.`;
     setUserInput('');
     setIsThinking(true);
 
-    const apiKey = getSetting('anthropic_key');
     const approach = COACHING_APPROACHES[profile.approach];
 
     const systemPrompt = `You are a PGA-certified golf coach. Continue this coaching intake conversation.
@@ -250,32 +240,36 @@ Rules:
 - DO NOT suggest which pro player they should emulate — focus on their individual needs
 - ${sv ? 'Respond in Swedish' : 'Respond in English'}`;
 
-    const apiMessages = updatedMessages.map((m) => ({
-      role: m.role === 'coach' ? 'assistant' : 'user',
-      content: m.text,
-    }));
-
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const auth = getAuth();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const historyForApi = chatMessages.map((m) => ({
+        role: m.role === 'coach' ? 'model' : 'user',
+        content: m.text,
+      }));
+
+      const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers,
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          system: systemPrompt,
-          messages: apiMessages,
+          message: userInput.trim(),
+          history: historyForApi,
+          language,
+          systemPromptOverride: systemPrompt,
         }),
       });
+
       const result = await response.json();
-      const coachText = result.content?.find((c) => c.type === 'text')?.text || '';
-      const finalMessages = [...updatedMessages, { role: 'coach', text: coachText }];
-      setChatMessages(finalMessages);
-      saveProfile({ conversationHistory: finalMessages });
+      if (result.error) throw new Error(result.error);
+
+      const coachText = result.reply || '';
+      saveProfile({
+        conversationHistory: [...updatedMessages, { role: 'coach', text: coachText }],
+      });
+      setChatMessages([...updatedMessages, { role: 'coach', text: coachText }]);
     } catch {
       setChatMessages([...updatedMessages, {
         role: 'coach',

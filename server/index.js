@@ -12,10 +12,13 @@
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { analyzeMotion, analyzeFullSwing } from './gemini.js';
 import { analyzePosition, summarizeAnalysis } from './claude.js';
+import { requireAuth } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,8 +27,18 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ──────────────────────────────────────────────
+app.use(helmet({
+  contentSecurityPolicy: false, // Don't block our own frontend assets if needed
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors());
-app.use(express.json({ limit: '25mb' })); // Enough for video + frames, prevents RAM abuse
+app.use(express.json({ limit: '10mb' })); // Reduced JSON limit now that video is multipart
+
+// Configure Multer for video upload (stored in memory as buffer)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max video size
+});
 
 // Rate limiting — prevents API key abuse
 const apiLimiter = rateLimit({
@@ -45,8 +58,8 @@ const aiLimiter = rateLimit({
 });
 
 app.use('/api/', apiLimiter);
-app.use('/api/analyze', aiLimiter);
-app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 15, message: { error: 'Chat rate limit reached' } }));
+app.use('/api/analyze', aiLimiter, requireAuth); // SECURED via Firebase ID token
+app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 15, message: { error: 'Chat rate limit reached' } }), requireAuth); // SECURED
 
 // Serve static Vite build
 const staticPath = join(__dirname, '..', 'app', 'dist');
@@ -82,7 +95,7 @@ app.get('/api/engines', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, history = [], language = 'sv', coachingContext = null } = req.body;
+    const { message, history = [], language = 'sv', coachingContext = null, systemPromptOverride = null } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Missing message' });
@@ -98,20 +111,26 @@ app.post('/api/chat', async (req, res) => {
       ? 'Svara alltid på svenska. Använd du-form.'
       : 'Always respond in English. Be concise but helpful.';
 
-    // Build personality from coaching context or default
-    const personalityBlock = coachingContext?.personalityInstructions
-      ? `## YOUR COACHING STYLE\n${coachingContext.personalityInstructions}`
-      : `## YOUR COACHING STYLE\nYou are a professional, encouraging PGA-certified coach. Be clear, precise, and supportive.`;
+    let systemPrompt = '';
 
-    // Build profile block
-    const profileBlock = coachingContext?.profileCtx
-      ? `## STUDENT PROFILE${coachingContext.profileCtx}`
-      : '';
+    if (systemPromptOverride) {
+      // If the client provides a full system prompt (e.g. for coach onboarding)
+      systemPrompt = systemPromptOverride;
+    } else {
+      // Build personality from coaching context or default
+      const personalityBlock = coachingContext?.personalityInstructions
+        ? `## YOUR COACHING STYLE\n${coachingContext.personalityInstructions}`
+        : `## YOUR COACHING STYLE\nYou are a professional, encouraging PGA-certified coach. Be clear, precise, and supportive.`;
 
-    // Build history block
-    const historyBlock = coachingContext?.historyCtx || '';
+      // Build profile block
+      const profileBlock = coachingContext?.profileCtx
+        ? `## STUDENT PROFILE${coachingContext.profileCtx}`
+        : '';
 
-    const systemPrompt = `Du är SWING AI Coach — en expert inom golf som alltid finns tillgänglig.
+      // Build history block
+      const historyBlock = coachingContext?.historyCtx || '';
+
+      systemPrompt = `Du är SWING AI Coach — en expert inom golf som alltid finns tillgänglig.
 
 ${personalityBlock}
 
@@ -137,6 +156,7 @@ ${historyBlock}
 - Om du vet deras senaste analys, referera till deras faktiska poäng och brister
 - Om någon frågar om sin sving utan analysdata, tipsa om att ladda upp en video
 - ${langInstruction}`;
+    }
 
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -166,24 +186,78 @@ ${historyBlock}
   }
 });
 
+// ─── Challenge Evaluation (Anthropic) ──────────────────────────
+
+import { evaluateChallenge } from './claude.js';
+
+app.post('/api/challenge', aiLimiter, requireAuth, async (req, res) => {
+  try {
+    const { frames, systemPrompt } = req.body;
+    
+    if (!frames || !systemPrompt) {
+      return res.status(400).json({ error: 'Missing frames or systemPrompt' });
+    }
+    
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Anthropic API key not configured for Challenges' });
+    }
+
+    const result = await evaluateChallenge(frames, systemPrompt);
+    res.json(result);
+  } catch (err) {
+    console.error('[challenge] Error:', err.message);
+    res.status(500).json({ error: err.message || 'Challenge failed' });
+  }
+});
+
 // ─── Full Dual-Engine Analysis ──────────────────────────────
 
-app.post('/api/analyze', async (req, res) => {
+app.post('/api/analyze', upload.single('video'), async (req, res) => {
   const startTime = Date.now();
 
   try {
     const {
-      video,          // base64 encoded video (for Gemini)
-      frames,         // [{phase, base64, measurements}] (for Claude)
-      cameraAngle,    // 'side' | 'front' | 'dtl'
+      cameraAngle,
       language = 'sv',
-      guestMode = false,
-      sequencing = null,
+      guestMode = 'false',
       knowledgeBase = '',
       coachingProfile = '',
       coachingHistory = '',
-      tier = 'basic', // 'basic' (Gemini only) or 'premium' (Dual Engine)
+      tier = 'basic',
     } = req.body;
+
+    // Multer places the file in req.file, we must convert it back to Base64 for Gemini/Claude if needed.
+    // Or send it directly if SDK supports it.
+    let videoStr = null;
+    if (req.file) {
+      videoStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
+
+    const {
+      video: fallbackVideo, // in case someone still sends it in JSON
+    } = req.body;
+
+    const video = videoStr || fallbackVideo;
+
+    let frames = [];
+    if (req.body.frames) {
+      try {
+        frames = JSON.parse(req.body.frames);
+      } catch (e) {
+        frames = [];
+      }
+    }
+
+    let sequencing = null;
+    if (req.body.sequencing) {
+      try {
+        sequencing = JSON.parse(req.body.sequencing);
+      } catch (e) {
+        sequencing = null;
+      }
+    }
+
+    const isGuest = guestMode === 'true';
 
     if (!frames || frames.length === 0) {
       return res.status(400).json({ error: 'Missing frames data' });
@@ -254,7 +328,7 @@ app.post('/api/analyze', async (req, res) => {
     if (hasAnthropic) {
       promises.push(
         analyzePosition(frames, cameraAngle, language, knowledgeBase, {
-          guestMode,
+          guestMode: isGuest,
           coachingProfile,
           coachingHistory,
           sequencing,

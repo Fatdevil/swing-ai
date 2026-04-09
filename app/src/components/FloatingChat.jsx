@@ -3,6 +3,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getSetting } from '../utils/storage';
 import { getCoachingHistory, buildCoachingHistoryPrompt } from '../utils/coachingHistory';
 import { COACHING_APPROACHES, REFERENCE_PLAYERS, COACH_PERSONALITIES } from '../utils/referencePlayers';
+import { getAuth } from 'firebase/auth';
 
 /**
  * FloatingChat — Global coaching assistant bubble
@@ -21,8 +22,21 @@ export default function FloatingChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [coachingContext, setCoachingContext] = useState(null);
+  const [analysisContext, setAnalysisContext] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Listen for global open events
+  useEffect(() => {
+    const handleOpenChat = (e) => {
+      setIsOpen(true);
+      if (e.detail?.analysisData) {
+        setAnalysisContext(e.detail.analysisData);
+      }
+    };
+    window.addEventListener('open-coach-chat', handleOpenChat);
+    return () => window.removeEventListener('open-coach-chat', handleOpenChat);
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -58,9 +72,15 @@ export default function FloatingChat() {
       historyCtx = buildCoachingHistoryPrompt(history, language);
     } catch { /* ignore */ }
 
+    // If we have an active analysis context passed from ResultsPage
+    let recentAnalysisCtx = '';
+    if (analysisContext) {
+      recentAnalysisCtx = `\n## RECENT SWING ANALYSIS\nScore: ${analysisContext.totalScore}/100. Priority fault to fix: ${analysisContext.priorityFocus}.`;
+    }
+
     return {
       profileCtx,
-      historyCtx,
+      historyCtx: historyCtx + recentAnalysisCtx,
       personalityInstructions: personality.promptInstructions,
     };
   }
@@ -75,14 +95,18 @@ export default function FloatingChat() {
     setLoading(true);
 
     try {
+      const auth = getAuth();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           message: text,
           history: messages,
           language,
-          // NEW: send coaching context to server
           coachingContext: coachingContext || undefined,
         }),
       });

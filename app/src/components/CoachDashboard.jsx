@@ -7,8 +7,8 @@ import {
   getSwingThought, setSwingThought as saveSwingThought, clearSwingThought,
   getJournalEntries, addJournalEntry, updateJournalEntry, deleteJournalEntry, togglePinEntry,
 } from '../utils/swingJournal';
-import { setSetting } from '../utils/storage';
-import CoachChat from './CoachChat';
+import { getSetting, setSetting } from '../utils/storage';
+import { clearCoachingHistory } from '../utils/coachingHistory';
 
 /**
  * CoachDashboard — living coaching summary
@@ -29,7 +29,7 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
   const [drills, setDrills] = useState([]);
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showChat, setShowChat] = useState(false);
+  const [showOptional, setShowOptional] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const sv = language === 'sv';
 
@@ -509,17 +509,12 @@ export default function CoachDashboard({ profile, language, onReset, onNavigate,
 
       {/* Talk to Coach button */}
       <button
-        onClick={() => setShowChat(true)}
+        onClick={() => window.dispatchEvent(new CustomEvent('open-coach-chat'))}
         className="w-full kinetic-gradient text-on-primary-fixed h-14 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-xs active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(157,255,0,0.2)]"
       >
         <span className="material-symbols-outlined text-lg">chat</span>
         {sv ? 'Prata med coachen' : 'Talk to Coach'}
       </button>
-
-      {/* Coach Chat overlay */}
-      {showChat && (
-        <CoachChat onClose={() => setShowChat(false)} />
-      )}
     </div>
   );
 }

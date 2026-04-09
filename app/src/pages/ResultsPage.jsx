@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import ScoreGauge from '../components/ScoreGauge';
 import { getPhaseLabel } from '../utils/videoFrames';
-import CoachChat from '../components/CoachChat';
 import MetricsPanel from '../components/MetricsPanel';
 import { generateScoreCard, shareImage } from '../utils/shareCard';
 import SequencingPanel from '../components/SequencingPanel';
@@ -13,7 +12,6 @@ export default function ResultsPage({ data, onBack }) {
   const { t, language } = useLanguage();
   const [activeFrame, setActiveFrame] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState(null);
-  const [showChat, setShowChat] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [sharePreview, setSharePreview] = useState(null);
 
@@ -350,12 +348,34 @@ export default function ResultsPage({ data, onBack }) {
           <h3 className="font-headline text-lg font-bold text-primary-fixed">{t('aiAnalysis')}</h3>
         </div>
 
-        {coaching.priorityFocus && (
-          <div className="bg-surface-container-high p-4 rounded-lg border border-primary-fixed/10">
-            <p className="font-label text-xs font-bold uppercase tracking-widest text-primary-fixed mb-2">
-              {t('priorityFocus')}
-            </p>
-            <p className="text-on-surface text-sm leading-relaxed">{coaching.priorityFocus}</p>
+        {coaching.causalChain && (
+          <div className="bg-surface-container-high p-5 rounded-lg border border-primary-fixed/20 shadow-[0_4px_24px_rgba(157,255,0,0.05)]">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="material-symbols-outlined text-primary-fixed text-lg">timeline</span>
+              <p className="font-label text-xs font-bold uppercase tracking-widest text-primary-fixed">
+                {language === 'sv' ? 'Kausal Analys' : 'Causal Analysis'}
+              </p>
+            </div>
+            
+            <div className="relative pl-6 space-y-5 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-error before:via-amber-400 before:to-primary-fixed">
+              <div className="relative">
+                <span className="absolute -left-[29px] w-3 h-3 rounded-full bg-error ring-4 ring-surface-container-high z-10 top-1"></span>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{language === 'sv' ? 'Rotorsak' : 'Root Cause'}</p>
+                <p className="text-on-surface text-sm">{coaching.causalChain.rootCause}</p>
+              </div>
+              
+              <div className="relative">
+                <span className="absolute -left-[29px] w-3 h-3 rounded-full bg-amber-400 ring-4 ring-surface-container-high z-10 top-1"></span>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{language === 'sv' ? 'Biomekanisk Effekt' : 'Biomechanical Effect'}</p>
+                <p className="text-on-surface text-sm">{coaching.causalChain.biomechanicalEffect}</p>
+              </div>
+
+              <div className="relative">
+                <span className="absolute -left-[29px] w-3 h-3 rounded-full bg-primary-fixed ring-4 ring-surface-container-high z-10 top-1"></span>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{language === 'sv' ? 'Bollflykt' : 'Ball Flight Output'}</p>
+                <p className="text-on-surface text-sm">{coaching.causalChain.ballFlight}</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -368,20 +388,31 @@ export default function ResultsPage({ data, onBack }) {
 
         {/* Recommended Drill — enriched from knowledge base */}
         {drill && (
-          <div className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-5 space-y-3">
-            <div className="flex items-center gap-2">
+          <div className="bg-primary-fixed/5 border border-primary-fixed/15 rounded-lg p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-primary-fixed">fitness_center</span>
               <p className="font-headline font-bold text-primary-fixed">
                 {drill.name || t('recommendedDrill')}
               </p>
             </div>
+            {drill.videoUrl && (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-outline-variant/20 shadow-md">
+                <iframe
+                  src={drill.videoUrl}
+                  title="Drill Video"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            )}
             {drill.reason && (
               <p className="text-on-surface-variant text-xs italic">{drill.reason}</p>
             )}
             {drill.instructions && (
               <p className="text-on-surface text-sm leading-relaxed">{drill.instructions}</p>
             )}
-            <div className="flex gap-4 text-[10px] text-on-surface-variant uppercase tracking-widest">
+            <div className="flex gap-4 text-[10px] text-on-surface-variant uppercase tracking-widest mt-2">
               {drill.reps && <span>📋 {drill.reps}</span>}
               {drill.equipment && <span>🏌️ {drill.equipment}</span>}
             </div>
@@ -408,8 +439,8 @@ export default function ResultsPage({ data, onBack }) {
       {/* Biomechanics Metrics */}
       <MetricsPanel biomechanics={coaching.biomechanics} language={language} />
 
-      {/* TPI Kinematic Sequencing */}
-      {data.sequencing && <SequencingPanel sequencing={data.sequencing} />}
+      {/* TPI Kinematic Sequencing (Front camera only) */}
+      {data.sequencing && data.cameraAngle === 'front' && <SequencingPanel sequencing={data.sequencing} />}
 
       {/* Tempo Analysis */}
       <TempoPanel frames={data.frames} />
@@ -420,7 +451,7 @@ export default function ResultsPage({ data, onBack }) {
           const w = window.open('', '_blank');
           const cats = (coaching.categories || []).map(c => `<tr><td style="padding:8px;border-bottom:1px solid #222">${c.name}</td><td style="padding:8px;border-bottom:1px solid #222;text-align:center;font-weight:bold;color:${c.score >= 80 ? '#9DFF00' : c.score >= 60 ? '#FFB800' : '#FF4444'}">${c.score}</td></tr>`).join('');
           const faultsList = faults.map(f => `<li>${f.fault} (${f.severity})</li>`).join('');
-          w.document.write(`<!DOCTYPE html><html><head><title>SWING_AI Report</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A0F1C;color:#e0e0e0;font-family:system-ui;padding:40px;max-width:800px;margin:0 auto}h1{color:#9DFF00;font-size:28px;margin-bottom:4px}h2{color:#9DFF00;font-size:16px;margin:24px 0 8px;text-transform:uppercase;letter-spacing:2px}table{width:100%;border-collapse:collapse;margin:8px 0}p{line-height:1.6;margin:4px 0}.score{font-size:72px;font-weight:900;color:#9DFF00;text-align:center;margin:30px 0}.sub{text-align:center;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:3px}.hcp{text-align:center;color:#aaa;margin-bottom:20px}@media print{body{background:white;color:#333}h1,h2,.score{color:#2d7a00}}</style></head><body><h1>SWING_AI</h1><p style="color:#888">Golf Swing Analysis Report — ${new Date().toLocaleDateString()}</p><div class="score">${totalScore}</div><div class="sub">Swing Score</div>${coaching.estimatedHandicap ? '<div class="hcp">Est. Handicap: '+coaching.estimatedHandicap+'</div>' : ''}<h2>Category Scores</h2><table>${cats}</table>${coaching.priorityFocus ? '<h2>Priority Focus</h2><p>'+coaching.priorityFocus+'</p>' : ''}${faultsList ? '<h2>Faults Detected</h2><ul style="padding-left:20px">'+faultsList+'</ul>' : ''}${drill ? '<h2>Recommended Drill</h2><p><strong>'+( drill.name || drill.id )+'</strong></p><p>'+(drill.instructions || '')+'</p><p style="color:#888;font-size:12px">'+(drill.reps ? 'Reps: '+drill.reps : '')+(drill.equipment ? ' | Equipment: '+drill.equipment : '')+'</p>' : ''}<hr style="border:none;border-top:1px solid #333;margin:30px 0"><p style="color:#555;font-size:11px;text-align:center">Generated by SWING_AI — AI-Powered Golf Coaching</p></body></html>`);
+          w.document.write(`<!DOCTYPE html><html><head><title>SWING_AI Report</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0A0F1C;color:#e0e0e0;font-family:system-ui;padding:40px;max-width:800px;margin:0 auto}h1{color:#9DFF00;font-size:28px;margin-bottom:4px}h2{color:#9DFF00;font-size:16px;margin:24px 0 8px;text-transform:uppercase;letter-spacing:2px}table{width:100%;border-collapse:collapse;margin:8px 0}p{line-height:1.6;margin:4px 0}.score{font-size:72px;font-weight:900;color:#9DFF00;text-align:center;margin:30px 0}.sub{text-align:center;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:3px}.hcp{text-align:center;color:#aaa;margin-bottom:20px}@media print{body{background:white;color:#333}h1,h2,.score{color:#2d7a00}}</style></head><body><h1>SWING_AI</h1><p style="color:#888">Golf Swing Analysis Report — ${new Date().toLocaleDateString()}</p><div class="score">${totalScore}</div><div class="sub">Swing Score</div>${coaching.estimatedHandicap ? '<div class="hcp">Est. Handicap: '+coaching.estimatedHandicap+'</div>' : ''}<h2>Category Scores</h2><table>${cats}</table>${coaching.causalChain ? '<h2>Causal Analysis</h2><p><strong>Root Cause:</strong> '+coaching.causalChain.rootCause+'</p><p><strong>Effect:</strong> '+coaching.causalChain.biomechanicalEffect+'</p><p><strong>Ball Flight:</strong> '+coaching.causalChain.ballFlight+'</p>' : ''}${faultsList ? '<h2>Faults Detected</h2><ul style="padding-left:20px">'+faultsList+'</ul>' : ''}${drill ? '<h2>Recommended Drill</h2><p><strong>'+( drill.name || drill.id )+'</strong></p><p>'+(drill.instructions || '')+'</p><p style="color:#888;font-size:12px">'+(drill.reps ? 'Reps: '+drill.reps : '')+(drill.equipment ? ' | Equipment: '+drill.equipment : '')+'</p>' : ''}<hr style="border:none;border-top:1px solid #333;margin:30px 0"><p style="color:#555;font-size:11px;text-align:center">Generated by SWING_AI — AI-Powered Golf Coaching</p></body></html>`);
           w.document.close();
           setTimeout(() => w.print(), 500);
         }}
@@ -465,7 +496,7 @@ export default function ResultsPage({ data, onBack }) {
 
       {/* Chat with Coach */}
       <button
-        onClick={() => setShowChat(true)}
+        onClick={() => window.dispatchEvent(new CustomEvent('open-coach-chat', { detail: { analysisData: data } }))}
         className="w-full kinetic-gradient text-on-primary-fixed h-14 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-xs active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(157,255,0,0.2)]"
       >
         <span className="material-symbols-outlined text-lg">chat</span>
@@ -481,10 +512,6 @@ export default function ResultsPage({ data, onBack }) {
         {t('home')}
       </button>
 
-      {/* Coach Chat overlay */}
-      {showChat && (
-        <CoachChat analysisData={data} onClose={() => setShowChat(false)} />
-      )}
     </div>
   );
 }
