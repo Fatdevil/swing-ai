@@ -3,6 +3,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 const tabs = [
   { id: 'home', icon: 'dashboard', labelKey: 'home' },
   { id: 'record', icon: 'videocam', labelKey: 'record' },
+  { id: 'compare', icon: 'compare', labelKey: 'compare' },
   { id: 'coach', icon: 'psychology', labelKey: 'coach' },
   { id: 'library', icon: 'video_library', labelKey: 'library' },
   { id: 'profile', icon: 'person', labelKey: 'profile' },

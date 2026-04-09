@@ -3,6 +3,7 @@ export const translations = {
     // Navigation
     home: 'Home',
     record: 'Record',
+    compare: 'Compare',
     coach: 'Coach',
     library: 'Library',
     profile: 'Profile',
@@ -106,6 +107,7 @@ export const translations = {
     // Navigation
     home: 'Hem',
     record: 'Spela in',
+    compare: 'Jämför',
     coach: 'Coach',
     library: 'Bibliotek',
     profile: 'Profil',

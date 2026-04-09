@@ -18,6 +18,7 @@ const CoachModePage = lazy(() => import('./pages/CoachModePage'));
 const BallTrackerPage = lazy(() => import('./pages/BallTrackerPage'));
 const ChallengesPage = lazy(() => import('./pages/ChallengesPage'));
 const ProgressPage = lazy(() => import('./pages/ProgressPage'));
+const ComparePage = lazy(() => import('./pages/ComparePage'));
 
 /**
  * Loading fallback for lazy-loaded pages
@@ -79,6 +80,7 @@ export default function App() {
       challenges: '/challenges',
       progress: '/progress',
       results: '/results',
+      compare: '/compare',
     };
     navigate(routeMap[page] || '/');
   }, [navigate]);
@@ -104,6 +106,7 @@ export default function App() {
     '/challenges': 'challenges',
     '/progress': 'progress',
     '/results': 'results',
+    '/compare': 'compare',
   };
   const activePage = pathToPage[location.pathname] || 'home';
 
@@ -137,6 +140,7 @@ export default function App() {
                 element={<LibraryPage onViewAnalysis={handleViewAnalysis} />}
               />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/compare" element={<ComparePage />} />
               <Route
                 path="/results"
                 element={<ResultsPage data={analysisData} onBack={() => navigate('/')} />}
