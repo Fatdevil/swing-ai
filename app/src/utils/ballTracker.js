@@ -1,23 +1,23 @@
 /**
- * BALL FLIGHT TRACKER — v4 (Affine Flow + Homography + Catmull-Rom)
- * ==================================================================
+ * BALL FLIGHT TRACKER — v4.1 (Fixed False Positives + Trajectory Validation)
+ * ===========================================================================
  * World-class golf ball tracking for smartphone video.
  *
- * Improvements over v3:
- * 1. Affine motion estimation (Harris + Lucas-Kanade + RANSAC) — replaces block matching
- * 2. Per-point homography — eliminates drift completely
- * 3. Catmull-Rom spline rendering — silky smooth trail
- * 4. Sub-pixel Gaussian centroid refinement — ±0.1px precision
- * 5. Motion blur-aware detection — catches elongated high-speed blobs
- * 6. Physics-aware trail opacity/width — exponential fade + speed-proportional thickness
- * 7. Automatic fallback to block-matching when <15 RANSAC inliers (featureless sky)
+ * v4.1 fixes vs v4.0:
+ * - Drastically reduced false positive rate via:
+ *   a) Upper-frame bias: ignore candidates in the bottom 40% of frame (golfer/ground)
+ *   b) Ball-size filtering: tighter min/max blob radius
+ *   c) Trajectory validation: reject zigzag, require upward initial motion
+ *   d) maxMissedBeforeStop: 15 → 6 (stop predicting hallucinations)
+ *   e) Post-processing: strip low-quality tails, physics plausibility filter
+ *   f) Stricter circularity and brightness thresholds
  *
  * Pipeline per frame:
  * ┌──────────────────────────────────────────────────────────────────────────┐
  * │ Frame → Grayscale + HSV → Harris Corners → LK Tracking → RANSAC Affine │
  * │ → Affine-Compensated Diff → Multi-Channel Blob Detection →              │
- * │ Sub-Pixel Refinement → Motion Blur Channel → Kalman Gating →            │
- * │ Update/Predict → Per-Point Homography → World-Space Trajectory          │
+ * │ Upper-Frame Filter → Sub-Pixel Refinement → Kalman Gating →             │
+ * │ Update/Predict → Per-Point Homography → Trajectory Validation           │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -38,57 +38,59 @@ import {
 
 const CONFIG = {
   // Frame differencing
-  diffThreshold: 25,
+  diffThreshold: 30,          // Raised from 25 → 30 to reject subtle noise
 
   // HSV: golf ball = high Value, low Saturation
-  hsvValueMin: 180,       // V channel minimum (bright)
-  hsvSatMax: 80,          // S channel maximum (near-white)
+  hsvValueMin: 190,           // Raised: only very bright objects (was 180)
+  hsvSatMax: 60,              // Tightened: must be whiter (was 80)
 
   // Brightness (RGB fallback)
-  brightnessMin: 160,
+  brightnessMin: 180,         // Raised from 160 → 180
 
   // Blob size (in process-space pixels)
-  minBlobRadius: 2,
-  maxBlobRadius: 30,
+  minBlobRadius: 3,           // Raised from 2 → 3 (reject pixel noise)
+  maxBlobRadius: 20,          // Tightened from 30 → 20 (golf ball is small)
 
   // Circularity: area / (π × r²) — 1.0 = perfect circle
-  minCircularity: 0.4,
+  minCircularity: 0.55,       // Raised from 0.4 → 0.55 (golf ball is round)
 
-  // Aspect ratio (width / height) — relaxed for motion blur
-  minAspect: 0.3,
-  maxAspect: 3.5,
+  // Aspect ratio (width / height)
+  minAspect: 0.5,             // Tightened from 0.3
+  maxAspect: 2.5,             // Tightened from 3.5
 
   // Kalman
-  kalmanProcessNoise: 8,
-  kalmanMeasurementNoise: 3,
-  kalmanGateThreshold: 4.0,  // Mahalanobis distance
+  kalmanProcessNoise: 6,      // Reduced from 8 → 6 (smoother, less jitter)
+  kalmanMeasurementNoise: 4,  // Raised from 3 → 4 (trust model more)
+  kalmanGateThreshold: 3.5,   // Tightened from 4.0 → 3.5
 
   // Motion estimation
-  affineMinInliers: 15,      // Below this: fall back to block matching
-  cornerDetectInterval: 3,   // Re-detect corners every N frames (reuse via LK between)
+  affineMinInliers: 15,
+  cornerDetectInterval: 3,
   maxCorners: 60,
 
   // Motion blur detection
-  motionBlurSpeedThreshold: 12, // px/frame — above this, enable elongated blob detection
-  motionBlurMinAspect: 2.0,     // elongated blobs must be at least 2:1
+  motionBlurSpeedThreshold: 15,  // Raised from 12
+  motionBlurMinAspect: 2.0,
 
   // Sub-pixel refinement
   subPixelRadius: 3,
 
+  // Spatial filtering: reject detections in lower part of frame
+  // Golf ball goes UP after impact — ground-level detections are false positives
+  upperFrameBias: 0.60,       // Only consider candidates in top 60% of frame
+
   // General
-  minFlightFrames: 3,
+  minFlightFrames: 4,         // Raised from 3 → 4
   frameSkip: 1,
-  maxMissedBeforeStop: 15,
+  maxMissedBeforeStop: 6,     // CRITICAL: reduced from 15 → 6
+
+  // Post-processing
+  minDetectedRatio: 0.15,     // Trajectory must be ≥15% real detections (not all predicted)
+  maxDirectionChange: 120,    // Max degrees between consecutive velocity vectors
 };
 
 // ─── Main Entry Point ──────────────────────────────────────────
 
-/**
- * Process a video and detect ball flight with Kalman-guided tracking.
- * @param {File|Blob} videoFile
- * @param {function} onProgress — callback(percent, message)
- * @returns {Object} { trajectory, launchData, quality, fps, width, height, duration, videoUrl, motionOffsets }
- */
 export async function detectBallFlight(videoFile, onProgress = () => {}) {
   const videoUrl = URL.createObjectURL(videoFile);
   const video = document.createElement('video');
@@ -96,7 +98,6 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
   video.playsInline = true;
   video.preload = 'auto';
 
-  // Load video
   await new Promise((resolve, reject) => {
     video.onloadedmetadata = resolve;
     video.onerror = () => reject(new Error('Could not load video'));
@@ -113,7 +114,6 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
   const totalFrames = Math.floor(duration * fps);
   const dt = 1 / fps;
 
-  // Process at reduced resolution for speed
   const processScale = Math.min(1, 640 / width);
   const pw = Math.round(width * processScale);
   const ph = Math.round(height * processScale);
@@ -123,9 +123,8 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
   processCanvas.height = ph;
   const processCtx = processCanvas.getContext('2d', { willReadFrequently: true });
 
-  onProgress(3, 'Initializing v4 tracker (affine + homography)...');
+  onProgress(3, 'Initializing v4.1 tracker...');
 
-  // ── Initialize Kalman tracker ──
   const kalman = createKalmanTracker({
     dt,
     processNoise: CONFIG.kalmanProcessNoise,
@@ -133,26 +132,26 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
     gravityPixels: 0.3,
   });
 
-  // ── Initialize affine motion system ──
   const homography = createHomographyAccumulator();
   let prevGray = null;
   let prevCorners = null;
-  let cornerAge = 0;    // Frames since last corner detection
+  let cornerAge = 0;
 
-  const motionOffsets = [];       // Per-frame homography snapshots
-  const kalmanTrajectory = [];    // Kalman-filtered trajectory in world-space
+  // Upper-frame detection boundary (in process-space)
+  const maxDetectionY = Math.round(ph * CONFIG.upperFrameBias);
 
-  onProgress(5, 'Processing frames with affine flow...');
+  const motionOffsets = [];
+  const kalmanTrajectory = [];
+
+  onProgress(5, 'Processing frames...');
 
   for (let i = 0; i < totalFrames; i += CONFIG.frameSkip) {
     const time = i / fps;
 
-    // Seek + capture frame
     await seekTo(video, time);
     processCtx.drawImage(video, 0, 0, pw, ph);
     const frameData = processCtx.getImageData(0, 0, pw, ph);
 
-    // Grayscale + HSV masks
     const gray = toGrayscale(frameData);
     const hsvMask = createHSVMask(frameData, pw, ph);
 
@@ -164,57 +163,52 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
       let usedAffine = false;
       let frameDiff;
 
-      // Detect or reuse corners
       if (!prevCorners || cornerAge >= CONFIG.cornerDetectInterval) {
         prevCorners = detectCorners(prevGray, pw, ph, CONFIG.maxCorners);
         cornerAge = 0;
       }
 
-      if (prevCorners.length >= 6) { // Need at least 3 pairs
-        // Track corners via Lucas-Kanade
+      if (prevCorners.length >= 6) {
         const flow = trackCorners(prevGray, gray, prevCorners, pw, ph);
 
         if (flow.count >= CONFIG.affineMinInliers) {
-          // RANSAC affine estimation
           const result = estimateAffineRANSAC(flow.src, flow.dst, flow.count);
 
           if (result && result.inlierCount >= CONFIG.affineMinInliers) {
-            // Success: apply affine transform to homography accumulator
-            homography.applyAffine(result.affine);
-            usedAffine = true;
+            // Validate affine: reject if scale/rotation is extreme
+            const scaleX = Math.sqrt(result.affine[0] * result.affine[0] + result.affine[3] * result.affine[3]);
+            const scaleY = Math.sqrt(result.affine[1] * result.affine[1] + result.affine[4] * result.affine[4]);
 
-            // Affine-compensated frame diff (much cleaner than shift)
-            frameDiff = affineCompensatedDiff(prevGray, gray, result.affine, pw, ph);
-
-            // Update corners: use tracked destinations as next frame's corners
-            prevCorners = flow.dst.slice(0, flow.count * 2);
-            cornerAge++;
+            if (scaleX > 0.9 && scaleX < 1.1 && scaleY > 0.9 && scaleY < 1.1) {
+              homography.applyAffine(result.affine);
+              usedAffine = true;
+              frameDiff = affineCompensatedDiff(prevGray, gray, result.affine, pw, ph);
+              prevCorners = flow.dst.slice(0, flow.count * 2);
+              cornerAge++;
+            }
           }
         }
       }
 
       if (!usedAffine) {
-        // Fallback: block-matching (translation only) → convert to homography
         const motion = estimateGlobalMotionFallback(prevGray, gray, pw, ph);
         homography.applyTranslation(motion.dx, motion.dy);
         frameDiff = shiftedFrameDifference(prevGray, gray, pw, ph, motion.dx, motion.dy);
-
-        // Force re-detect corners next frame
         prevCorners = null;
         cornerAge = CONFIG.cornerDetectInterval;
       }
 
       // ═══════════════════════════════════════════════════════════
-      // 2. MULTI-CHANNEL BLOB DETECTION + SUB-PIXEL
+      // 2. MULTI-CHANNEL BLOB DETECTION + UPPER-FRAME FILTER
       // ═══════════════════════════════════════════════════════════
 
-      const candidates = detectCandidates(frameDiff, hsvMask, frameData, pw, ph, gray);
+      const candidates = detectCandidates(frameDiff, hsvMask, frameData, pw, ph, gray, maxDetectionY);
 
-      // Motion blur-aware detection (secondary channel)
-      if (kalman.getSpeed() > CONFIG.motionBlurSpeedThreshold) {
+      // Motion blur (only if already tracking fast)
+      if (kalman.getSpeed() > CONFIG.motionBlurSpeedThreshold && kalman.isAlive()) {
         const blurCandidates = detectMotionBlurCandidates(
           frameDiff, hsvMask, frameData, pw, ph,
-          kalman.getMotionDirection(), kalman.getSpeed()
+          kalman.getMotionDirection(), kalman.getSpeed(), maxDetectionY
         );
         candidates.push(...blurCandidates);
       }
@@ -227,10 +221,8 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
       const selection = selectBestCandidate(kalman, candidates, CONFIG.kalmanGateThreshold);
 
       if (selection) {
-        // Update Kalman with measurement
         const kState = kalman.update(selection.candidate.x, selection.candidate.y);
 
-        // Store in world-space with per-point homography
         const screenX = kState.x / processScale;
         const screenY = kState.y / processScale;
 
@@ -245,34 +237,34 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
           vy: kState.vy / processScale,
           kalmanDistance: selection.distance,
           source: 'detected',
-          // Per-point homography: snapshot of accumulated H at detection time
           H_world: homography.getMatrix(),
         });
       } else if (kalman.isAlive()) {
-        // No detection — use Kalman prediction
         const predicted = kalman.handleMiss();
         if (predicted) {
           const screenX = predicted.x / processScale;
           const screenY = predicted.y / processScale;
 
-          kalmanTrajectory.push({
-            x: screenX,
-            y: screenY,
-            time,
-            frameIndex: i,
-            brightness: 200,
-            radius: 4 / processScale,
-            vx: predicted.vx / processScale,
-            vy: predicted.vy / processScale,
-            kalmanDistance: -1,
-            source: 'predicted',
-            H_world: homography.getMatrix(),
-          });
+          // Don't add predicted points that go off-screen or into the ground
+          if (screenX > 0 && screenX < width && screenY > 0 && screenY < height * 0.8) {
+            kalmanTrajectory.push({
+              x: screenX,
+              y: screenY,
+              time,
+              frameIndex: i,
+              brightness: 200,
+              radius: 4 / processScale,
+              vx: predicted.vx / processScale,
+              vy: predicted.vy / processScale,
+              kalmanDistance: -1,
+              source: 'predicted',
+              H_world: homography.getMatrix(),
+            });
+          }
         }
       }
     }
 
-    // Store per-frame homography snapshot for replay renderer
     motionOffsets.push({
       time,
       frameIndex: i,
@@ -281,17 +273,19 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
 
     prevGray = gray;
 
-    // Progress
     const percent = 5 + Math.round((i / totalFrames) * 75);
     if (i % 8 === 0) {
-      onProgress(percent, `Frame ${i}/${totalFrames} — ${kalmanTrajectory.length} points tracked`);
+      onProgress(percent, `Frame ${i}/${totalFrames} — ${kalmanTrajectory.length} points`);
     }
   }
 
-  onProgress(85, 'Analyzing launch data...');
+  onProgress(85, 'Validating trajectory...');
 
-  // ── Post-processing ──
-  const trajectory = kalmanTrajectory;
+  // ═══════════════════════════════════════════════════════════════
+  // 4. POST-PROCESSING: Trajectory Validation & Cleanup
+  // ═══════════════════════════════════════════════════════════════
+
+  let trajectory = validateTrajectory(kalmanTrajectory, width, height);
 
   // Calculate launch data
   const launchData = analyzeLaunchData(trajectory, width, height, fps);
@@ -317,12 +311,125 @@ export async function detectBallFlight(videoFile, onProgress = () => {}) {
   };
 }
 
-// ─── HSV Color Segmentation ────────────────────────────────────
+// ─── Trajectory Validation & Cleanup ───────────────────────────
 
 /**
- * Create a binary mask where golf-ball-like pixels = 255.
- * Golf ball in HSV: high Value (V > 180), low Saturation (S < 80).
+ * Post-process the raw Kalman trajectory to remove false positives.
+ *
+ * Rules:
+ * 1. Must have minimum ratio of detected vs predicted points
+ * 2. Remove zigzag segments (sharp direction changes)
+ * 3. Find the longest physically-plausible sub-trajectory
+ * 4. Ball should generally move upward initially (golf ball goes up after impact)
  */
+function validateTrajectory(raw, videoWidth, videoHeight) {
+  if (raw.length < CONFIG.minFlightFrames) return [];
+
+  // 1. Check detected ratio
+  const detectedCount = raw.filter(p => p.source === 'detected').length;
+  const totalCount = raw.length;
+
+  if (detectedCount < 3) return [];  // Need at least 3 actual detections
+  if (detectedCount / totalCount < CONFIG.minDetectedRatio) {
+    // Too many predictions — trim trailing predictions
+    const lastDetectedIdx = raw.map((p, i) => p.source === 'detected' ? i : -1)
+      .filter(i => i >= 0)
+      .pop();
+    if (lastDetectedIdx !== undefined) {
+      raw = raw.slice(0, lastDetectedIdx + 3); // Keep 3 predictions after last detection
+    }
+  }
+
+  // 2. Find longest smooth sub-trajectory
+  // Score each point pair by directional consistency
+  const segments = [];
+  let currentSegment = [raw[0]];
+
+  for (let i = 1; i < raw.length; i++) {
+    const prev = raw[i - 1];
+    const curr = raw[i];
+
+    // Direction from prev to current
+    const dx = curr.x - prev.x;
+    const dy = curr.y - prev.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Check for reasonable movement (not teleporting)
+    const maxMovePerFrame = videoWidth * 0.15; // Max 15% of frame width per frame
+    if (dist > maxMovePerFrame) {
+      // Teleport detected — start new segment
+      if (currentSegment.length > segments.length) {
+        segments.push([...currentSegment]);
+      }
+      currentSegment = [curr];
+      continue;
+    }
+
+    // Check direction consistency with previous movement
+    if (currentSegment.length >= 2) {
+      const prevPrev = currentSegment[currentSegment.length - 2];
+      const prevDx = prev.x - prevPrev.x;
+      const prevDy = prev.y - prevPrev.y;
+
+      // Angle between consecutive velocity vectors
+      const dot = prevDx * dx + prevDy * dy;
+      const cross = prevDx * dy - prevDy * dx;
+      const angle = Math.abs(Math.atan2(cross, dot)) * (180 / Math.PI);
+
+      if (angle > CONFIG.maxDirectionChange) {
+        // Sharp direction change — might be a false positive
+        if (currentSegment.length >= CONFIG.minFlightFrames) {
+          segments.push([...currentSegment]);
+        }
+        currentSegment = [curr];
+        continue;
+      }
+    }
+
+    currentSegment.push(curr);
+  }
+
+  if (currentSegment.length >= CONFIG.minFlightFrames) {
+    segments.push(currentSegment);
+  }
+
+  if (segments.length === 0) return [];
+
+  // 3. Pick the best segment (longest with most detections)
+  let bestSegment = segments[0];
+  let bestScore = 0;
+
+  for (const seg of segments) {
+    const detected = seg.filter(p => p.source === 'detected').length;
+    const score = detected * 3 + seg.length; // Weight detections 3x
+    if (score > bestScore) {
+      bestScore = score;
+      bestSegment = seg;
+    }
+  }
+
+  // 4. Verify upward initial motion (ball goes up after impact)
+  // Check if the first few detected points show upward movement (negative dy in screen coords)
+  const detectedPts = bestSegment.filter(p => p.source === 'detected');
+  if (detectedPts.length >= 2) {
+    const first = detectedPts[0];
+    const second = detectedPts[Math.min(2, detectedPts.length - 1)];
+    const dy = second.y - first.y;
+
+    // If ball is moving DOWN from the start, it's probably not a real ball flight
+    // (exception: if it's a very lateral shot, allow horizontal movement)
+    const dx = Math.abs(second.x - first.x);
+    if (dy > 20 && dx < 10) {
+      // Moving down and not sideways — likely false positive on ground
+      return [];
+    }
+  }
+
+  return bestSegment;
+}
+
+// ─── HSV Color Segmentation ────────────────────────────────────
+
 function createHSVMask(frameData, w, h) {
   const { data } = frameData;
   const mask = new Uint8Array(w * h);
@@ -344,9 +451,6 @@ function createHSVMask(frameData, w, h) {
   return morphClose(mask, w, h, 1);
 }
 
-/**
- * Simple morphological closing (dilate then erode) to clean up mask.
- */
 function morphClose(mask, w, h, radius) {
   const dilated = new Uint8Array(w * h);
   for (let y = radius; y < h - radius; y++) {
@@ -379,12 +483,12 @@ function morphClose(mask, w, h, radius) {
 
 // ─── Multi-Channel Candidate Detection ─────────────────────────
 
-function detectCandidates(diff, hsvMask, frameData, w, h, gray) {
+function detectCandidates(diff, hsvMask, frameData, w, h, gray, maxDetectionY) {
   const candidates = [];
   const visited = new Set();
   const { data } = frameData;
 
-  for (let y = 5; y < h - 5; y++) {
+  for (let y = 5; y < Math.min(h - 5, maxDetectionY); y++) {  // Upper-frame filter
     for (let x = 5; x < w - 5; x++) {
       const idx = y * w + x;
       if (visited.has(idx)) continue;
@@ -392,17 +496,17 @@ function detectCandidates(diff, hsvMask, frameData, w, h, gray) {
       const hasDiff = diff[idx] >= CONFIG.diffThreshold;
       const hasHSV = hsvMask[idx] > 0;
 
-      if (!hasDiff && !hasHSV) continue;
+      // Require BOTH motion AND brightness (not just one)
+      // This is the key change to reduce false positives
+      if (!hasDiff) continue;  // Must have motion
 
       const pixIdx = idx * 4;
       const r = data[pixIdx], g = data[pixIdx + 1], b = data[pixIdx + 2];
       const brightness = (r + g + b) / 3;
       if (brightness < CONFIG.brightnessMin && !hasHSV) continue;
 
-      // Flood fill to find blob
       const blob = floodFillMulti(diff, hsvMask, data, w, h, x, y, visited);
-
-      if (blob.size < 2) continue;
+      if (blob.size < 3) continue;  // Raised from 2
 
       const radius = Math.sqrt(blob.size / Math.PI);
       if (radius < CONFIG.minBlobRadius || radius > CONFIG.maxBlobRadius) continue;
@@ -418,10 +522,10 @@ function detectCandidates(diff, hsvMask, frameData, w, h, gray) {
       // Sub-pixel centroid refinement
       const refined = refineSubPixelCenter(gray, blob.cx, blob.cy, CONFIG.subPixelRadius, w, h);
 
-      // Score = brightness + HSV bonus + motion bonus
+      // Score: heavily weight HSV match (white ball) and position (higher = more likely ball)
       let score = brightness;
-      if (hasHSV) score += 50;
-      if (hasDiff) score += 30;
+      if (hasHSV) score += 80;   // HSV match is strong signal
+      score += 30 * (1 - refined.y / h);  // Higher in frame = more likely ball
 
       candidates.push({
         x: refined.x,
@@ -436,53 +540,47 @@ function detectCandidates(diff, hsvMask, frameData, w, h, gray) {
   }
 
   candidates.sort((a, b) => b.brightness - a.brightness);
-  return candidates.slice(0, 8);
+  return candidates.slice(0, 5);  // Reduced from 8 → 5
 }
 
 // ─── Motion Blur-Aware Detection ───────────────────────────────
 
-/**
- * Detect elongated blobs that match predicted motion direction.
- * Activated only when ball speed > threshold (typically 12+ px/frame).
- */
-function detectMotionBlurCandidates(diff, hsvMask, frameData, w, h, motionAngle, speed) {
+function detectMotionBlurCandidates(diff, hsvMask, frameData, w, h, motionAngle, speed, maxDetectionY) {
   const candidates = [];
   const visited = new Set();
   const { data } = frameData;
 
-  // Expected blur length proportional to speed
-  const expectedLength = Math.max(3, speed * 0.6);
-
-  for (let y = 5; y < h - 5; y += 2) { // Step 2 for speed
+  for (let y = 5; y < Math.min(h - 5, maxDetectionY); y += 2) {
     for (let x = 5; x < w - 5; x += 2) {
       const idx = y * w + x;
       if (visited.has(idx)) continue;
-      if (diff[idx] < CONFIG.diffThreshold * 0.7) continue; // Lower threshold for blur
+      if (diff[idx] < CONFIG.diffThreshold * 0.7) continue;
 
       const blob = floodFillMulti(diff, hsvMask, data, w, h, x, y, visited);
       if (blob.size < 4) continue;
 
-      // Check if elongated in predicted direction
       const aspect = blob.w > 0 && blob.h > 0 ? Math.max(blob.w / blob.h, blob.h / blob.w) : 1;
       if (aspect < CONFIG.motionBlurMinAspect) continue;
 
-      // Check if blob orientation matches motion direction
       const blobAngle = Math.atan2(blob.h, blob.w);
       const angleDiff = Math.abs(motionAngle - blobAngle);
       const normalizedAngleDiff = Math.min(angleDiff, Math.PI - angleDiff);
-      if (normalizedAngleDiff > Math.PI / 3) continue; // Too different from predicted direction
+      if (normalizedAngleDiff > Math.PI / 3) continue;
 
       const radius = Math.sqrt(blob.size / Math.PI);
       if (radius < CONFIG.minBlobRadius || radius > CONFIG.maxBlobRadius * 1.5) continue;
 
       const pixIdx = (Math.round(blob.cy) * w + Math.round(blob.cx)) * 4;
+      if (pixIdx < 0 || pixIdx + 2 >= data.length) continue;
       const brightness = (data[pixIdx] + data[pixIdx + 1] + data[pixIdx + 2]) / 3;
+
+      if (brightness < CONFIG.brightnessMin * 0.8) continue; // Must still be bright-ish
 
       candidates.push({
         x: blob.cx,
         y: blob.cy,
         radius,
-        brightness: brightness + 20, // Small bonus for blur-match
+        brightness: brightness + 20,
         size: blob.size,
         hasHSV: hsvMask[Math.round(blob.cy) * w + Math.round(blob.cx)] > 0,
         hasDiff: true,
@@ -491,15 +589,11 @@ function detectMotionBlurCandidates(diff, hsvMask, frameData, w, h, motionAngle,
     }
   }
 
-  return candidates.slice(0, 3); // Max 3 blur candidates
+  return candidates.slice(0, 2);  // Reduced from 3 → 2
 }
 
 // ─── Sub-Pixel Centroid Refinement ─────────────────────────────
 
-/**
- * Gaussian-weighted centroid refinement around an integer center.
- * Achieves ~0.1px precision vs ±0.5px from flood-fill integer average.
- */
 function refineSubPixelCenter(gray, cx, cy, radius, w, h) {
   const icx = Math.round(cx);
   const icy = Math.round(cy);
@@ -526,7 +620,6 @@ function refineSubPixelCenter(gray, cx, cy, radius, w, h) {
   }
 
   if (sumW < 1e-6) return { x: cx, y: cy };
-
   return { x: sumX / sumW, y: sumY / sumW };
 }
 
@@ -534,7 +627,7 @@ function floodFillMulti(diff, hsvMask, rawData, w, h, startX, startY, visited) {
   const queue = [[startX, startY]];
   let totalX = 0, totalY = 0, count = 0;
   let minX = w, maxX = 0, minY = h, maxY = 0;
-  const maxSize = 800;
+  const maxSize = 500;  // Reduced from 800 — golf ball shouldn't be huge
 
   while (queue.length > 0 && count < maxSize) {
     const [x, y] = queue.pop();
@@ -571,7 +664,7 @@ function floodFillMulti(diff, hsvMask, rawData, w, h, startX, startY, visited) {
   };
 }
 
-// ─── Block-Matching Fallback (from v3 — for featureless frames) ─
+// ─── Block-Matching Fallback ───────────────────────────────────
 
 function estimateGlobalMotionFallback(prev, curr, w, h) {
   const gridCols = 8, gridRows = 6;
@@ -647,13 +740,6 @@ function toGrayscale(imageData) {
 
 // ─── Camera Offset (v4: homography-based) ──────────────────────
 
-/**
- * Get the camera transform for a given video time.
- * Returns an object with:
- *   - dx, dy: approximate translation (backward-compatible)
- *   - H: full 3×3 homography matrix
- *   - transformPoint(x, y): transforms world-space point to screen-space
- */
 export function getCameraOffset(motionOffsets, currentTime) {
   if (!motionOffsets || motionOffsets.length === 0) {
     return {
@@ -670,17 +756,15 @@ export function getCameraOffset(motionOffsets, currentTime) {
     } else break;
   }
 
-  // v4: full homography
   if (closest.H) {
     return {
-      dx: closest.H[2] || 0,  // Approximate translation (tx)
-      dy: closest.H[5] || 0,  // Approximate translation (ty)
+      dx: closest.H[2] || 0,
+      dy: closest.H[5] || 0,
       H: closest.H,
       transformPoint: (x, y) => transformPointH(closest.H, x, y),
     };
   }
 
-  // v3 backward compat (shouldn't hit this in v4)
   return {
     dx: closest.accDx || 0,
     dy: closest.accDy || 0,
@@ -689,36 +773,25 @@ export function getCameraOffset(motionOffsets, currentTime) {
   };
 }
 
-// ─── Trail Rendering (v4: Catmull-Rom + Physics-Aware) ─────────
+// ─── Trail Rendering (v4.1: same Catmull-Rom + physics-aware) ──
 
-/**
- * Draw the ball flight trail with:
- * - Per-point homography transform (world → screen)
- * - Catmull-Rom spline interpolation (silky smooth curves)
- * - Physics-aware opacity (exponential decay backward)
- * - Speed-proportional width (faster = thinner, like light trail exposure)
- * - Warm-to-cool heat gradient tied to velocity
- */
 export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraOffset = null, launchData = null) {
   if (!trajectory || trajectory.length < 2) return;
 
   const endIdx = Math.min(upToIndex, trajectory.length - 1);
   if (endIdx < 1) return;
 
-  // ── Build screen-space points using per-point homography ──
+  // Build screen-space points using per-point homography
   const screenPts = new Array(endIdx + 1);
   const currentH = cameraOffset?.H || null;
 
   for (let i = 0; i <= endIdx; i++) {
     const pt = trajectory[i];
     if (currentH && pt.H_world) {
-      // H_relative = H_current * inverse(H_world)
-      // This transforms from world-at-detection-time to current screen
       const H_world_inv = invertHomography(pt.H_world);
       const H_rel = multiplyHomography(currentH, H_world_inv);
       screenPts[i] = transformPointH(H_rel, pt.x, pt.y);
     } else {
-      // Fallback: simple offset
       screenPts[i] = {
         x: pt.x - (cameraOffset?.dx || 0),
         y: pt.y - (cameraOffset?.dy || 0),
@@ -726,7 +799,6 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
     }
   }
 
-  // Calculate max speed for gradient normalization
   let maxSpeed = 1;
   for (let i = 0; i <= endIdx; i++) {
     const vx = trajectory[i].vx || 0;
@@ -737,33 +809,31 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
 
   ctx.save();
 
-  // ── Draw Catmull-Rom spline trail with physics-aware styling ──
+  // Catmull-Rom spline trail with physics-aware styling
   for (let i = 1; i <= endIdx; i++) {
     const p0 = screenPts[Math.max(0, i - 2)];
     const p1 = screenPts[i - 1];
     const p2 = screenPts[i];
     const p3 = screenPts[Math.min(endIdx, i + 1)];
 
-    // Speed → color (lime=fast → cyan=slow)
     const vx = trajectory[i].vx || 0;
     const vy = trajectory[i].vy || 0;
     const speed = Math.sqrt(vx * vx + vy * vy);
     const speedRatio = speed / maxSpeed;
 
-    const hue = 80 - speedRatio * 40; // 80=green(slow) → 40=yellow-green(fast)
+    const hue = 80 - speedRatio * 40;
 
-    // Physics-aware opacity: exponential decay backward from current position
     const age = endIdx - i;
-    const baseAlpha = trajectory[i].source === 'predicted' ? 0.3 : 0.75;
+    const baseAlpha = trajectory[i].source === 'predicted' ? 0.25 : 0.75;
     const alpha = baseAlpha * Math.exp(-0.08 * age);
 
-    // Speed-proportional width: faster = thinner (light trail effect)
     const baseWidth = 3.5;
     const lineWidth = baseWidth / (1 + speedRatio * 1.2);
     const glowWidth = lineWidth * 3.5;
 
-    // ── Draw sub-segments via Catmull-Rom ──
     const subSegments = 6;
+
+    // Outer glow
     ctx.strokeStyle = `hsla(${hue}, 100%, 50%, ${alpha * 0.35})`;
     ctx.lineWidth = glowWidth;
     ctx.lineCap = 'round';
@@ -771,8 +841,8 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
     ctx.shadowBlur = 12;
 
     ctx.beginPath();
-    const startPt = catmullRomPoint(p0, p1, p2, p3, 0);
-    ctx.moveTo(startPt.x, startPt.y);
+    const s0 = catmullRomPoint(p0, p1, p2, p3, 0);
+    ctx.moveTo(s0.x, s0.y);
     for (let s = 1; s <= subSegments; s++) {
       const t = s / subSegments;
       const pt = catmullRomPoint(p0, p1, p2, p3, t);
@@ -785,8 +855,8 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
     ctx.lineWidth = lineWidth;
     ctx.shadowBlur = 4;
     ctx.beginPath();
-    const startPt2 = catmullRomPoint(p0, p1, p2, p3, 0);
-    ctx.moveTo(startPt2.x, startPt2.y);
+    const s1 = catmullRomPoint(p0, p1, p2, p3, 0);
+    ctx.moveTo(s1.x, s1.y);
     for (let s = 1; s <= subSegments; s++) {
       const t = s / subSegments;
       const pt = catmullRomPoint(p0, p1, p2, p3, t);
@@ -795,10 +865,10 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
     ctx.stroke();
   }
 
-  // ── Predicted segments: dashed overlay ──
+  // Predicted segments: dashed overlay
   ctx.setLineDash([4, 6]);
-  ctx.strokeStyle = 'rgba(157, 255, 0, 0.25)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(157, 255, 0, 0.2)';
+  ctx.lineWidth = 1.5;
   ctx.shadowBlur = 0;
   let inPredicted = false;
   for (let i = 1; i <= endIdx; i++) {
@@ -815,10 +885,9 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
   if (inPredicted) ctx.stroke();
   ctx.setLineDash([]);
 
-  // ── Ball at current position with glow ──
+  // Ball at current position
   const current = screenPts[endIdx];
 
-  // Outer pulsing glow
   ctx.shadowBlur = 20;
   ctx.shadowColor = '#9DFF00';
   ctx.fillStyle = 'rgba(157, 255, 0, 0.15)';
@@ -826,7 +895,6 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
   ctx.arc(current.x, current.y, Math.max(12, (trajectory[endIdx].radius || 5) * 2), 0, Math.PI * 2);
   ctx.fill();
 
-  // White ball
   ctx.shadowBlur = 15;
   ctx.shadowColor = '#FFFFFF';
   ctx.fillStyle = '#FFFFFF';
@@ -834,13 +902,12 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
   ctx.arc(current.x, current.y, Math.max(5, trajectory[endIdx].radius || 5), 0, Math.PI * 2);
   ctx.fill();
 
-  // Green center dot
   ctx.fillStyle = '#9DFF00';
   ctx.beginPath();
   ctx.arc(current.x, current.y, Math.max(2, (trajectory[endIdx].radius || 5) * 0.5), 0, Math.PI * 2);
   ctx.fill();
 
-  // ── Apex marker ──
+  // Apex marker
   if (launchData?.apex && launchData.apex.index <= endIdx) {
     const apexScreen = screenPts[launchData.apex.index];
     if (apexScreen) {
@@ -848,13 +915,11 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
       ctx.strokeStyle = '#00BFFF';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 3]);
-
       ctx.beginPath();
       ctx.moveTo(apexScreen.x - 30, apexScreen.y);
       ctx.lineTo(apexScreen.x + 30, apexScreen.y);
       ctx.stroke();
       ctx.setLineDash([]);
-
       ctx.fillStyle = '#00BFFF';
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
@@ -862,20 +927,17 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
     }
   }
 
-  // ── Launch angle arc ──
+  // Launch angle arc
   if (launchData?.valid && launchData.impactIndex <= endIdx) {
     const impactScreen = screenPts[launchData.impactIndex];
     if (impactScreen) {
       const angleRad = launchData.launchAngleRad;
-
       ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
-
       ctx.beginPath();
       ctx.arc(impactScreen.x, impactScreen.y, 40, -angleRad, 0);
       ctx.stroke();
-
       ctx.fillStyle = '#FFD700';
       ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'left';
@@ -886,12 +948,8 @@ export function drawBallTrail(ctx, trajectory, upToIndex, width, height, cameraO
   ctx.restore();
 }
 
-// ─── Catmull-Rom Spline Interpolation ──────────────────────────
+// ─── Catmull-Rom Spline ────────────────────────────────────────
 
-/**
- * Evaluate a Catmull-Rom spline at parameter t ∈ [0, 1].
- * p0, p1, p2, p3 are control points; the curve goes from p1 to p2.
- */
 function catmullRomPoint(p0, p1, p2, p3, t) {
   const t2 = t * t, t3 = t2 * t;
   return {
@@ -900,7 +958,7 @@ function catmullRomPoint(p0, p1, p2, p3, t) {
   };
 }
 
-// ─── Interpolation (v4: Kalman-aware + Catmull-Rom ready) ──────
+// ─── Interpolation ─────────────────────────────────────────────
 
 export function interpolateTrajectory(trajectory, totalFrames, fps) {
   if (trajectory.length < 2) return trajectory;
@@ -928,7 +986,6 @@ export function interpolateTrajectory(trajectory, totalFrames, fps) {
           vx: (b.x - a.x) / frameDiff,
           vy: (b.y - a.y) / frameDiff,
           source: 'interpolated',
-          // Interpolated points get the H_world of the nearest detected point
           H_world: a.H_world,
         });
       }
