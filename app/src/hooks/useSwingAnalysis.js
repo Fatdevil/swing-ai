@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { getSetting } from './storage';
-import { analyzeSwing, fileToBase64 } from './api';
-import { getPhaseLabel } from './videoFrames';
+import { getSetting } from '../utils/storage';
+import { analyzeSwing, fileToBase64 } from '../utils/api';
+import { getPhaseLabel } from '../utils/videoFrames';
 
 export function useSwingAnalysis({ language, onAnalysisComplete }) {
   const [step, setStep] = useState('upload'); // extract -> analyzing -> ready -> coaching -> coaching_error
@@ -23,7 +23,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
     setStep('extracting');
     setProgress(language === 'sv' ? 'Extraherar nyckelframes...' : 'Extracting key frames...');
     try {
-      const { extractFrames } = await import('./videoFrames.js');
+      const { extractFrames } = await import('../utils/videoFrames.js');
       const extracted = await extractFrames(file, 8);
       setFrames(extracted);
       setStep('ready');
@@ -51,8 +51,8 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
     if (!frames) return;
     setStep('analyzing');
     try {
-      const { analyzePose, drawSkeleton } = await import('./mediapipe.js');
-      const { calculateAllAngles } = await import('./angles.js');
+      const { analyzePose, drawSkeleton } = await import('../utils/mediapipe.js');
+      const { calculateAllAngles } = await import('../utils/angles.js');
       const results = [];
 
       for (let i = 0; i < frames.length; i++) {
@@ -75,7 +75,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
 
         let overlayBase64 = null;
         if (landmarks2D) {
-          const { drawAnnotations } = await import('./swingAnnotations.js');
+          const { drawAnnotations } = await import('../utils/swingAnnotations.js');
           const canvas = document.createElement('canvas');
           canvas.width = frames[i].width;
           canvas.height = frames[i].height;
@@ -104,7 +104,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
 
       let seqData = null;
       try {
-        const { analyzeSequencing } = await import('./kinematicSequencing.js');
+        const { analyzeSequencing } = await import('../utils/kinematicSequencing.js');
         seqData = analyzeSequencing(results);
       } catch (err) {
         console.warn('Sequencing analysis failed:', err);
@@ -171,7 +171,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
     }, 5000);
 
     try {
-      const { createVideoThumbnail } = await import('./videoFrames.js');
+      const { createVideoThumbnail } = await import('../utils/videoFrames.js');
 
       let videoBase64 = null;
       // We still map file to base64 for fallback or direct upload formats depending on backend needs.
@@ -195,7 +195,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
       let coachingProfile = '';
       let coachingHistory = '';
       try {
-        const { buildKnowledgeBasePrompt } = await import('./golfKnowledge.js');
+        const { buildKnowledgeBasePrompt } = await import('../utils/golfKnowledge.js');
         knowledgeBase = buildKnowledgeBasePrompt(language);
       } catch { /* optional */ }
       if (!guestMode) {
@@ -204,7 +204,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
           if (profileStr) coachingProfile = profileStr;
         } catch { /* optional */ }
         try {
-          const { getCoachingHistory, buildCoachingHistoryPrompt } = await import('./coachingHistory.js');
+          const { getCoachingHistory, buildCoachingHistoryPrompt } = await import('../utils/coachingHistory.js');
           const history = await getCoachingHistory();
           coachingHistory = buildCoachingHistoryPrompt(history, language);
         } catch { /* optional */ }
@@ -241,12 +241,12 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
       };
 
       if (!guestMode) {
-        const { saveAnalysis } = await import('./storage.js');
+        const { saveAnalysis } = await import('../utils/storage.js');
         await saveAnalysis(analysisData);
 
         // Calculate Swing Score v2 but don't blindly overwrite Claude totalScore (Point 8)
         try {
-          const { calculateSwingScore, checkPersonalBests, calculateDeltas } = await import('./swingScore.js');
+          const { calculateSwingScore, checkPersonalBests, calculateDeltas } = await import('../utils/swingScore.js');
           const mediapipeData = poseResults?.[0]?.measurements || null;
           const swingScoreV2 = calculateSwingScore(result, mediapipeData, sequencingData);
           const { newRecords, personalBests } = checkPersonalBests(swingScoreV2);
@@ -266,12 +266,12 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
 
         // Only generate plans and add drills if not guest mode!
         if (result.recommendedDrill?.id) {
-          const { addDrill } = await import('./coachingHistory.js');
+          const { addDrill } = await import('../utils/coachingHistory.js');
           addDrill(result.recommendedDrill.id, result.recommendedDrill.reason || '');
         }
 
         try {
-          const { generatePlan } = await import('./trainingPlan.js');
+          const { generatePlan } = await import('../utils/trainingPlan.js');
           const profile = getSetting('coaching_profile') || {};
           generatePlan(result, profile, language);
         } catch (planErr) {

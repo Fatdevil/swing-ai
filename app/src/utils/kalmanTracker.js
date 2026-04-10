@@ -303,7 +303,19 @@ export function createKalmanTracker({
     return result;
   }
 
-  return { predict, update, handleMiss, mahalanobisDistance, getState, isAlive };
+  /** Get current predicted speed in pixels/frame. */
+  function getSpeed() {
+    if (!initialized) return 0;
+    return Math.sqrt(state[2] * state[2] + state[3] * state[3]);
+  }
+
+  /** Get motion direction angle in radians (atan2 of velocity). */
+  function getMotionDirection() {
+    if (!initialized) return 0;
+    return Math.atan2(state[3], state[2]);
+  }
+
+  return { predict, update, handleMiss, mahalanobisDistance, getState, isAlive, getSpeed, getMotionDirection };
 }
 
 // ─── State Transition Matrix ───────────────────────────────────
