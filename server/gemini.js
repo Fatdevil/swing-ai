@@ -16,7 +16,7 @@ function getModel() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+  return genAI.getGenerativeModel({ model: 'gemini-2.5-pro-preview-05-06' });
 }
 
 /** Race an async operation against a timeout */
