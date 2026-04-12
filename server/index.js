@@ -244,6 +244,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       try {
         frames = JSON.parse(req.body.frames);
       } catch (e) {
+        console.error('[analyze] Failed to parse frames JSON:', e.message);
         frames = [];
       }
     }
@@ -253,6 +254,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       try {
         sequencing = JSON.parse(req.body.sequencing);
       } catch (e) {
+        console.error('[analyze] Failed to parse sequencing JSON:', e.message);
         sequencing = null;
       }
     }
@@ -260,7 +262,12 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     const isGuest = guestMode === 'true';
 
     if (!frames || frames.length === 0) {
-      return res.status(400).json({ error: 'Missing frames data' });
+      // For basic tier with video, frames are optional (Gemini analyzes video directly)
+      if (tier === 'basic' && video) {
+        console.log('[analyze] Basic tier with video but no frames — proceeding with video-only analysis');
+      } else {
+        return res.status(400).json({ error: 'Missing frames data. Please re-record your swing.' });
+      }
     }
 
     const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);

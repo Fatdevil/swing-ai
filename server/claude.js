@@ -224,7 +224,12 @@ Valid JSON only — no markdown, no code fences:
   if (!text) throw new Error('No text response from Claude');
 
   const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  return JSON.parse(jsonStr);
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error('Claude position JSON parse error. First 500 chars:', text.slice(0, 500));
+    throw new Error(`Claude returned invalid JSON for position analysis. Try again or re-record. (Parse error: ${e.message})`);
+  }
 }
 
 
@@ -315,7 +320,12 @@ CRITICAL:
   if (!text) throw new Error('No summarizer response');
 
   const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  return JSON.parse(jsonStr);
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    console.error('Claude summarizer JSON parse error. First 500 chars:', text.slice(0, 500));
+    throw new Error(`Claude summarizer returned invalid JSON. Try again. (Parse error: ${e.message})`);
+  }
 }
 
 // ─── CRITICAL: Do not export callClaudeAPI since it was removed ────

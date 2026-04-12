@@ -46,7 +46,7 @@ export async function analyzeSwing({
   tier = 'basic',
 }) {
   const auth = getAuth();
-  const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+  const token = auth.currentUser ? await auth.currentUser.getIdToken(true) : '';
 
   const headers = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;

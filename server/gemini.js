@@ -42,8 +42,8 @@ function parseJSON(text) {
   try {
     return JSON.parse(jsonStr);
   } catch (e) {
-    console.error('Gemini JSON parse error:', text.slice(0, 500));
-    throw new Error('Could not parse Gemini response');
+    console.error('Gemini JSON parse error. First 500 chars:', text.slice(0, 500));
+    throw new Error(`Gemini returned invalid JSON. The AI may have failed to analyze your video. Try again or use a different camera angle. (Parse error: ${e.message})`);
   }
 }
 

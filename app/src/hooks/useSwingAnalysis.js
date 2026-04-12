@@ -15,7 +15,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
   const [poseResults, setPoseResults] = useState(null);
   const [sequencingData, setSequencingData] = useState(null);
 
-  const [cameraAngle, setCameraAngle] = useState('side');
+  const [cameraAngle, setCameraAngle] = useState('auto');
   const [tier, setTier] = useState('premium');
   const [guestMode, setGuestMode] = useState(false);
 
