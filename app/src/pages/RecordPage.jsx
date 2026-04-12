@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPhaseLabel } from '../utils/videoFrames';
 import { useSwingAnalysis } from '../hooks/useSwingAnalysis';
+import SwingViewfinder from '../components/SwingViewfinder';
 
 export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const { t, language } = useLanguage();
@@ -30,6 +31,7 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeFrame, setActiveFrame] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showViewfinder, setShowViewfinder] = useState(false);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -43,6 +45,21 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
     { id: 'front', icon: '🧍', label: t('angleFront') },
     { id: 'dtl', icon: '🎯', label: t('angleDownTheLine') },
   ];
+
+  // Handle recording completion from SwingViewfinder
+  const handleViewfinderComplete = useCallback((blob, detectedAngle) => {
+    setShowViewfinder(false);
+    // Map detector angle names to our cameraAngle format
+    const angleMap = {
+      'face_on': 'front',
+      'dtl': 'dtl',
+      'side': 'side',
+      'auto': 'auto',
+    };
+    const mappedAngle = angleMap[detectedAngle] || 'auto';
+    setCameraAngle(mappedAngle);
+    handleFileSelect(blob);
+  }, [handleFileSelect, setCameraAngle]);
 
   return (
     <div className="px-6 pt-8 pb-8 max-w-2xl mx-auto">
@@ -116,18 +133,14 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              {/* Record video — label+input for mobile */}
-              <label className="kinetic-gradient text-on-primary-fixed font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 active:scale-95 duration-200 cursor-pointer shadow-[0_4px_20px_rgba(157,255,0,0.2)]">
+              {/* Record video — opens smart viewfinder */}
+              <button
+                onClick={() => setShowViewfinder(true)}
+                className="kinetic-gradient text-on-primary-fixed font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 active:scale-95 duration-200 cursor-pointer shadow-[0_4px_20px_rgba(157,255,0,0.2)]"
+              >
                 <span className="material-symbols-outlined">videocam</span>
                 {language === 'sv' ? 'Filma din sving' : 'Record Swing'}
-                <input
-                  type="file"
-                  accept="video/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e.target.files?.[0])}
-                />
-              </label>
+              </button>
 
               {/* Upload from gallery */}
               <label className="border border-outline-variant/30 text-on-surface font-bold py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:bg-surface-bright transition-colors active:scale-95 cursor-pointer">
@@ -149,6 +162,15 @@ export default function RecordPage({ onAnalysisComplete, onNavigate }) {
 
           {error && (
             <div className="bg-error-container/20 text-error rounded-lg p-4 text-sm">{error}</div>
+          )}
+
+          {/* Inline Viewfinder */}
+          {showViewfinder && (
+            <SwingViewfinder
+              onRecordingComplete={handleViewfinderComplete}
+              onCancel={() => setShowViewfinder(false)}
+              language={language}
+            />
           )}
 
           {/* Ball Tracker Mode */}

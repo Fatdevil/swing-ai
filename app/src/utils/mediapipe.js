@@ -12,14 +12,18 @@
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 let poseLandmarker = null;
+let poseLandmarkerVideo = null;
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 const MODEL_URL = isMobile 
   ? 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task'
   : 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task';
 
+// Always use lite for real-time video (speed > accuracy)
+const LITE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
+
 /**
- * Load PoseLandmarker (lazy, cached)
+ * Load PoseLandmarker for IMAGE mode (lazy, cached)
  */
 async function loadPoseLandmarker() {
   if (poseLandmarker) return poseLandmarker;
@@ -31,7 +35,7 @@ async function loadPoseLandmarker() {
   poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath: MODEL_URL,
-      delegate: 'GPU', // Use GPU if available, falls back to CPU
+      delegate: 'GPU',
     },
     runningMode: 'IMAGE',
     numPoses: 1,
@@ -40,6 +44,31 @@ async function loadPoseLandmarker() {
   });
 
   return poseLandmarker;
+}
+
+/**
+ * Load PoseLandmarker for VIDEO mode (real-time viewfinder)
+ * Uses lite model for speed. Separate instance from IMAGE mode.
+ */
+export async function loadPoseLandmarkerForVideo() {
+  if (poseLandmarkerVideo) return poseLandmarkerVideo;
+
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+  );
+
+  poseLandmarkerVideo = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: LITE_MODEL_URL,
+      delegate: 'GPU',
+    },
+    runningMode: 'VIDEO',
+    numPoses: 1,
+    minPoseDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+
+  return poseLandmarkerVideo;
 }
 
 /**
