@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { detectBallFlight, interpolateTrajectory, drawBallTrail, getCameraOffset } from '../utils/ballTracker';
+import { createBallLockDetector, LOCK_STATE } from '../utils/ballLockDetector';
 
 /**
  * BallTrackerPage — Record/upload video → detect ball flight → animated replay with trail
- * No coaching, just pure visual ball flight tracking.
+ * Now with real-time ball lock targeting ring in viewfinder.
  */
 export default function BallTrackerPage({ onBack }) {
   const { language } = useLanguage();
@@ -18,6 +19,11 @@ export default function BallTrackerPage({ onBack }) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
+  // Ball Lock state
+  const [lockState, setLockState] = useState(LOCK_STATE.SEARCHING);
+  const [lockConfidence, setLockConfidence] = useState(0);
+  const [seedPosition, setSeedPosition] = useState(null);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -28,7 +34,22 @@ export default function BallTrackerPage({ onBack }) {
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
 
+  // Ball lock detector refs
+  const lockDetectorRef = useRef(null);
+  const lockCanvasRef = useRef(null); // Scratch canvas for pixel analysis
+  const lockLoopRef = useRef(null);
+  const lockOverlayCanvasRef = useRef(null); // Canvas overlay for drawing ring
+
   const t = (sv, en) => language === 'sv' ? sv : en;
+
+  // Ring configuration
+  const RING_RADIUS = 35; // CSS pixels
+  // Ring position: slightly right of center, lower third (where ball on tee typically is)
+  const getRingPosition = (containerWidth, containerHeight) => ({
+    x: containerWidth * 0.5,
+    y: containerHeight * 0.55,
+  });
+
 
   // -- CAPTURE STEP --
 
@@ -48,16 +69,197 @@ export default function BallTrackerPage({ onBack }) {
       });
       streamRef.current = stream;
       setStep('viewfinder');
+
+      // Initialize ball lock detector
+      lockDetectorRef.current = createBallLockDetector({ ringRadius: RING_RADIUS });
+      if (!lockCanvasRef.current) {
+        lockCanvasRef.current = document.createElement('canvas');
+      }
+
       // Attach stream to live video element after render
       setTimeout(() => {
         if (liveVideoRef.current) {
           liveVideoRef.current.srcObject = stream;
           liveVideoRef.current.play().catch(() => {});
+
+          // Start lock detection loop once video is playing
+          liveVideoRef.current.onplaying = () => {
+            startLockLoop();
+          };
         }
       }, 50);
     } catch (err) {
       console.error('Camera access error:', err);
     }
+  };
+
+  // Real-time ball lock analysis loop (runs at ~20fps for efficiency)
+  const startLockLoop = () => {
+    if (lockLoopRef.current) cancelAnimationFrame(lockLoopRef.current);
+
+    let frameCount = 0;
+    const loop = () => {
+      frameCount++;
+      // Run analysis every 3rd frame (~20fps on 60fps display) for efficiency
+      if (frameCount % 3 === 0 && liveVideoRef.current && lockDetectorRef.current && lockCanvasRef.current) {
+        const video = liveVideoRef.current;
+        const overlayCanvas = lockOverlayCanvasRef.current;
+
+        if (video.videoWidth > 0 && overlayCanvas) {
+          const displayW = overlayCanvas.clientWidth;
+          const displayH = overlayCanvas.clientHeight;
+          const ringPos = getRingPosition(displayW, displayH);
+
+          const result = lockDetectorRef.current.analyze(
+            video,
+            lockCanvasRef.current,
+            ringPos.x,
+            ringPos.y,
+            displayW,
+            displayH
+          );
+
+          setLockState(result.state);
+          setLockConfidence(result.confidence);
+
+          if (result.state === LOCK_STATE.LOCKED && result.ballCenter) {
+            setSeedPosition(result.ballCenter);
+          }
+
+          // Draw ring overlay
+          drawLockRing(overlayCanvas, ringPos, result.state, result.confidence);
+        }
+      }
+
+      lockLoopRef.current = requestAnimationFrame(loop);
+    };
+    lockLoopRef.current = requestAnimationFrame(loop);
+  };
+
+  // Draw the targeting ring with state-based styling
+  const drawLockRing = (canvas, ringPos, state, confidence) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set canvas size to match display
+    const displayW = canvas.clientWidth;
+    const displayH = canvas.clientHeight;
+    if (canvas.width !== displayW * dpr || canvas.height !== displayH * dpr) {
+      canvas.width = displayW * dpr;
+      canvas.height = displayH * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    ctx.clearRect(0, 0, displayW, displayH);
+
+    const { x, y } = ringPos;
+    const r = RING_RADIUS;
+    const time = performance.now() / 1000;
+
+    // Colors based on state
+    let ringColor, glowColor, glowIntensity, lineWidth;
+
+    if (state === LOCK_STATE.LOCKED) {
+      ringColor = '#00FF66';
+      glowColor = 'rgba(0, 255, 102, 0.4)';
+      glowIntensity = 20 + Math.sin(time * 3) * 8; // Gentle pulse
+      lineWidth = 3;
+    } else if (state === LOCK_STATE.ACQUIRING) {
+      ringColor = '#FFD700';
+      glowColor = 'rgba(255, 215, 0, 0.3)';
+      glowIntensity = 12;
+      lineWidth = 2.5;
+    } else {
+      ringColor = 'rgba(255, 80, 80, 0.7)';
+      glowColor = 'rgba(255, 80, 80, 0.15)';
+      glowIntensity = 6;
+      lineWidth = 2;
+    }
+
+    // Outer glow
+    ctx.shadowColor = ringColor;
+    ctx.shadowBlur = glowIntensity;
+
+    // Ring background fill (very subtle)
+    ctx.fillStyle = glowColor;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Main ring
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Corner brackets (targeting reticle)
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = 2.5;
+    const bracketLen = 10;
+    const bracketOffset = r + 6;
+
+    // Top-left
+    ctx.beginPath();
+    ctx.moveTo(x - bracketOffset, y - bracketOffset + bracketLen);
+    ctx.lineTo(x - bracketOffset, y - bracketOffset);
+    ctx.lineTo(x - bracketOffset + bracketLen, y - bracketOffset);
+    ctx.stroke();
+    // Top-right
+    ctx.beginPath();
+    ctx.moveTo(x + bracketOffset - bracketLen, y - bracketOffset);
+    ctx.lineTo(x + bracketOffset, y - bracketOffset);
+    ctx.lineTo(x + bracketOffset, y - bracketOffset + bracketLen);
+    ctx.stroke();
+    // Bottom-left
+    ctx.beginPath();
+    ctx.moveTo(x - bracketOffset, y + bracketOffset - bracketLen);
+    ctx.lineTo(x - bracketOffset, y + bracketOffset);
+    ctx.lineTo(x - bracketOffset + bracketLen, y + bracketOffset);
+    ctx.stroke();
+    // Bottom-right
+    ctx.beginPath();
+    ctx.moveTo(x + bracketOffset - bracketLen, y + bracketOffset);
+    ctx.lineTo(x + bracketOffset, y + bracketOffset);
+    ctx.lineTo(x + bracketOffset, y + bracketOffset - bracketLen);
+    ctx.stroke();
+
+    // Confidence arc (progress indicator around ring)
+    if (state !== LOCK_STATE.SEARCHING && confidence > 0) {
+      ctx.strokeStyle = ringColor;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = ringColor;
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (Math.PI * 2 * confidence);
+      ctx.arc(x, y, r + 3, startAngle, endAngle);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    // Lock text
+    ctx.shadowBlur = 0;
+    if (state === LOCK_STATE.LOCKED) {
+      ctx.fillStyle = '#00FF66';
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('● LOCKED', x, y - r - 14);
+    } else if (state === LOCK_STATE.ACQUIRING) {
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('ACQUIRING...', x, y - r - 14);
+    }
+
+    // Crosshair dot in center (tiny)
+    ctx.fillStyle = ringColor;
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
   };
 
   const startRecording = () => {
@@ -111,8 +313,18 @@ export default function BallTrackerPage({ onBack }) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    // Stop lock detection loop
+    if (lockLoopRef.current) {
+      cancelAnimationFrame(lockLoopRef.current);
+      lockLoopRef.current = null;
+    }
+    if (lockDetectorRef.current) {
+      lockDetectorRef.current.reset();
+    }
     setIsRecording(false);
     setRecordingTime(0);
+    setLockState(LOCK_STATE.SEARCHING);
+    setLockConfidence(0);
   };
 
   const cancelViewfinder = () => {
@@ -341,20 +553,31 @@ export default function BallTrackerPage({ onBack }) {
       {/* VIEWFINDER STEP */}
       {step === 'viewfinder' && (
         <div className="space-y-4">
-          {/* Live camera feed */}
-          <div className="relative rounded-lg overflow-hidden border-2 border-outline-variant/20 bg-black">
+          {/* Live camera feed with targeting ring overlay */}
+          <div className="relative rounded-lg overflow-hidden border-2 bg-black"
+            style={{ borderColor: lockState === LOCK_STATE.LOCKED ? 'rgba(0,255,102,0.3)' :
+                                   lockState === LOCK_STATE.ACQUIRING ? 'rgba(255,215,0,0.2)' :
+                                   'rgba(255,255,255,0.1)' }}
+          >
             <video
               ref={liveVideoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-auto max-h-[400px] object-cover mirror-mode"
+              className="w-full h-auto max-h-[400px] object-cover"
               style={{ transform: 'scaleX(1)' }}
+            />
+
+            {/* Canvas overlay for targeting ring — positioned exactly over video */}
+            <canvas
+              ref={lockOverlayCanvasRef}
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ zIndex: 10 }}
             />
 
             {/* Recording indicator */}
             {isRecording && (
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 border border-red-500/30">
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 border border-red-500/30" style={{ zIndex: 20 }}>
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(255,0,0,0.6)]" />
                 <span className="text-white text-xs font-bold font-mono">
                   {String(Math.floor(recordingTime / 60)).padStart(2, '0')}:{String(recordingTime % 60).padStart(2, '0')}
@@ -366,15 +589,52 @@ export default function BallTrackerPage({ onBack }) {
             <button
               onClick={cancelViewfinder}
               className="absolute top-4 right-4 bg-black/50 backdrop-blur-md p-2 rounded-full border border-white/10 hover:bg-black/70 transition-colors"
+              style={{ zIndex: 20 }}
             >
               <span className="material-symbols-outlined text-white text-xl">close</span>
             </button>
 
-            {/* Recording status badge */}
+            {/* Lock status badge */}
             {!isRecording && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md rounded-full px-4 py-1.5 border border-white/10">
-                <span className="text-white/70 text-[10px] font-bold uppercase tracking-widest">
-                  {t('Redo att spela in', 'Ready to record')}
+              <div
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 backdrop-blur-md rounded-full px-4 py-2 border transition-all duration-300"
+                style={{
+                  zIndex: 20,
+                  backgroundColor: lockState === LOCK_STATE.LOCKED ? 'rgba(0,255,102,0.15)' :
+                                   lockState === LOCK_STATE.ACQUIRING ? 'rgba(255,215,0,0.1)' :
+                                   'rgba(0,0,0,0.5)',
+                  borderColor: lockState === LOCK_STATE.LOCKED ? 'rgba(0,255,102,0.3)' :
+                               lockState === LOCK_STATE.ACQUIRING ? 'rgba(255,215,0,0.2)' :
+                               'rgba(255,255,255,0.1)',
+                }}
+              >
+                <span
+                  className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
+                  style={{
+                    color: lockState === LOCK_STATE.LOCKED ? '#00FF66' :
+                           lockState === LOCK_STATE.ACQUIRING ? '#FFD700' :
+                           'rgba(255,255,255,0.5)',
+                  }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      backgroundColor: lockState === LOCK_STATE.LOCKED ? '#00FF66' :
+                                       lockState === LOCK_STATE.ACQUIRING ? '#FFD700' :
+                                       'rgba(255,80,80,0.7)',
+                      boxShadow: lockState === LOCK_STATE.LOCKED ? '0 0 8px rgba(0,255,102,0.6)' :
+                                 lockState === LOCK_STATE.ACQUIRING ? '0 0 6px rgba(255,215,0,0.4)' :
+                                 'none',
+                      animation: lockState === LOCK_STATE.LOCKED ? 'pulse 1.5s ease-in-out infinite' :
+                                 lockState === LOCK_STATE.ACQUIRING ? 'pulse 2s ease-in-out infinite' :
+                                 'none',
+                    }}
+                  />
+                  {lockState === LOCK_STATE.LOCKED
+                    ? t('Boll låst — Redo att spela in!', 'Ball Locked — Ready to record!')
+                    : lockState === LOCK_STATE.ACQUIRING
+                    ? t('Söker boll...', 'Acquiring ball...')
+                    : t('Rikta ringen mot bollen', 'Aim ring at the ball')}
                 </span>
               </div>
             )}
@@ -384,10 +644,23 @@ export default function BallTrackerPage({ onBack }) {
           {!isRecording ? (
             <button
               onClick={startRecording}
-              className="w-full h-16 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-sm active:scale-[0.98] transition-all bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_20px_rgba(255,0,0,0.3)]"
+              className={`w-full h-16 rounded-full flex items-center justify-center gap-3 font-headline font-bold uppercase tracking-widest text-sm active:scale-[0.98] transition-all ${
+                lockState === LOCK_STATE.LOCKED
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-[0_4px_20px_rgba(0,255,102,0.3)]'
+                  : 'bg-red-500 hover:bg-red-600 text-white shadow-[0_4px_20px_rgba(255,0,0,0.3)]'
+              }`}
             >
-              <span className="w-5 h-5 rounded-full bg-white" />
-              {t('Spela in', 'Record')}
+              {lockState === LOCK_STATE.LOCKED ? (
+                <>
+                  <span className="material-symbols-filled text-xl">radio_button_checked</span>
+                  {t('Spela in', 'Record')}
+                </>
+              ) : (
+                <>
+                  <span className="w-5 h-5 rounded-full bg-white" />
+                  {t('Spela in', 'Record')}
+                </>
+              )}
             </button>
           ) : (
             <button
@@ -401,10 +674,11 @@ export default function BallTrackerPage({ onBack }) {
 
           {/* Timer info */}
           <p className="text-center text-on-surface-variant text-[10px] uppercase tracking-widest">
-            {t('Max 30 sekunder • Tryck stopp när bollen landat', 'Max 30 seconds • Press stop when ball lands')}
+            {t('Max 30 sek • Rikta ringen mot bollen för bäst spårning', 'Max 30 sec • Aim ring at ball for best tracking')}
           </p>
         </div>
       )}
+
 
       {/* PROCESSING STEP */}
       {step === 'processing' && (
