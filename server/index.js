@@ -41,6 +41,21 @@ const upload = multer({
 });
 
 // Rate limiting — prevents API key abuse
+// ─── Health Check (BEFORE rate limiter — Railway checks frequently) ──
+app.get('/api/health', (req, res) => {
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+  res.json({
+    status: 'ok',
+    engines: {
+      claude: hasAnthropic ? 'configured' : 'missing',
+      gemini: hasGemini ? 'configured' : 'missing',
+      dualEngine: hasAnthropic && hasGemini,
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,  // 1 minute
   max: 30,              // 30 requests per minute for general API
@@ -64,22 +79,6 @@ app.use('/api/chat', rateLimit({ windowMs: 60_000, max: 15, message: { error: 'C
 // Serve static Vite build
 const staticPath = join(__dirname, '..', 'app', 'dist');
 app.use(express.static(staticPath));
-
-// ─── Health Check ────────────────────────────────────────────
-
-app.get('/api/health', (req, res) => {
-  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
-  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
-  res.json({
-    status: 'ok',
-    engines: {
-      claude: hasAnthropic ? 'configured' : 'missing',
-      gemini: hasGemini ? 'configured' : 'missing',
-      dualEngine: hasAnthropic && hasGemini,
-    },
-    timestamp: new Date().toISOString(),
-  });
-});
 
 // ─── Engine Status (for frontend to know what's available) ───
 
