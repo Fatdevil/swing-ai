@@ -262,9 +262,16 @@ export default function BallTrackerPage({ onBack }) {
     ctx.fill();
   };
 
+  // Ref for aborting tracking
+  const trackingAbortRef = useRef(null);
+
   const startRecording = () => {
     if (!streamRef.current) return;
     chunksRef.current = [];
+
+    // Snapshot seed position from lock detector (if locked)
+    const currentSeed = lockDetectorRef.current?.getSeedPosition() || null;
+
     const mediaRecorder = new MediaRecorder(streamRef.current, {
       mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm',
     });
@@ -272,7 +279,12 @@ export default function BallTrackerPage({ onBack }) {
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       closeCamera();
-      handleFileSelect(blob);
+      // Set video file and go DIRECTLY to processing (skip capture step)
+      setVideoFile(blob);
+      setVideoUrl(URL.createObjectURL(blob));
+      setSeedPosition(currentSeed);
+      // Start tracking immediately
+      startTrackingDirect(blob, currentSeed);
     };
 
     recorderRef.current = mediaRecorder;
@@ -332,14 +344,21 @@ export default function BallTrackerPage({ onBack }) {
     setStep('capture');
   };
 
-  const handleStartTracking = async () => {
-    if (!videoFile) return;
+  // Direct-start tracking (called from recording onstop)
+  const startTrackingDirect = async (blob, seed) => {
     setStep('processing');
+    setProgress({ percent: 0, message: '' });
 
     try {
-      const result = await detectBallFlight(videoFile, (percent, message) => {
+      const result = await detectBallFlight(blob, (percent, message) => {
         setProgress({ percent, message });
       });
+
+      // Check if tracking was cancelled
+      if (trackingAbortRef.current?.aborted) {
+        trackingAbortRef.current = null;
+        return;
+      }
 
       const trajectory = result.trajectory.length >= 2
         ? interpolateTrajectory(result.trajectory, Math.floor(result.duration * result.fps), result.fps)
@@ -348,9 +367,29 @@ export default function BallTrackerPage({ onBack }) {
       setTrackData({ ...result, trajectory });
       setStep('replay');
     } catch (err) {
+      if (trackingAbortRef.current?.aborted) {
+        trackingAbortRef.current = null;
+        return; // User cancelled — don't show error
+      }
       console.error('Ball tracking error:', err);
       setStep('capture');
     }
+  };
+
+  // Manual tracking start (from upload flow or retry)
+  const handleStartTracking = async () => {
+    if (!videoFile) return;
+    trackingAbortRef.current = new AbortController();
+    await startTrackingDirect(videoFile, seedPosition);
+  };
+
+  // Cancel tracking during processing
+  const cancelTracking = () => {
+    if (trackingAbortRef.current) {
+      trackingAbortRef.current.abort();
+    }
+    setStep('capture');
+    setProgress({ percent: 0, message: '' });
   };
 
   // -- REPLAY STEP --
@@ -714,6 +753,14 @@ export default function BallTrackerPage({ onBack }) {
               {progress.message}
             </p>
           </div>
+
+          {/* Cancel button */}
+          <button
+            onClick={cancelTracking}
+            className="mt-4 px-6 py-2.5 rounded-full border border-outline-variant/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest hover:text-error hover:border-error/30 transition-all"
+          >
+            {t('Avbryt spårning', 'Cancel Tracking')}
+          </button>
         </div>
       )}
 
