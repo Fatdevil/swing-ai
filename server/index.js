@@ -415,8 +415,8 @@ app.get('*', (req, res) => {
 
 // ─── Start Server ────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`\n🏌️ SWING_AI Backend running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🏌️ SWING_AI Backend running on 0.0.0.0:${PORT}`);
   console.log(`   Claude:  ${process.env.ANTHROPIC_API_KEY ? '✅ configured' : '❌ missing ANTHROPIC_API_KEY'}`);
   console.log(`   Gemini:  ${process.env.GEMINI_API_KEY ? '✅ configured' : '❌ missing GEMINI_API_KEY'}`);
   console.log(`   Static:  ${staticPath}\n`);
