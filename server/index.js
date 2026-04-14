@@ -9,6 +9,21 @@
  *   GET  /api/health    — Health check
  */
 
+// ─── Early startup logging (before any imports that might crash) ──
+console.log('[STARTUP] Server process starting...');
+console.log('[STARTUP] Node version:', process.version);
+console.log('[STARTUP] PORT env:', process.env.PORT);
+console.log('[STARTUP] CWD:', process.cwd());
+
+// Catch uncaught errors at process level
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.stack || err.message);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+});
+
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -19,6 +34,8 @@ import { dirname, join } from 'path';
 import { analyzeMotion, analyzeFullSwing } from './gemini.js';
 import { analyzePosition, summarizeAnalysis } from './claude.js';
 import { requireAuth } from './auth.js';
+
+console.log('[STARTUP] All imports loaded successfully');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
