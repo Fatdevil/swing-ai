@@ -61,22 +61,34 @@ export async function getHistory() {
 
 /**
  * Get lightweight metadata for analyses list (no base64 frames).
- * Much faster than getHistory() for UI lists — each full analysis can be 1-5MB.
+ * P1 FIX: Cursor-baserad paginering — läser bara `limit` poster ur IndexedDB,
+ * inte hela databasen. O(limit) vs O(n) minneskostnad.
  * @param {number} limit - Max items to return (default 20)
  * @returns {Array<{ id, timestamp, totalScore, imageThumbnail, cameraAngle, _meta }>}
  */
 export async function getHistoryMeta(limit = 20) {
   const db = await getDB();
-  const all = await db.getAll(STORE_NAME);
-  const sorted = all.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
-  return sorted.map(item => ({
-    id: item.id,
-    timestamp: item.timestamp,
-    totalScore: item.coaching?.totalScore ?? item.totalScore ?? null,
-    imageThumbnail: item.imageThumbnail || null,
-    cameraAngle: item.cameraAngle || null,
-    _meta: item._meta || null,
-  }));
+  const tx = db.transaction(STORE_NAME, 'readonly');
+  const index = tx.store.index('timestamp');
+
+  const results = [];
+  // 'prev' = nyast först (fallande timestamp-ordning), läser max `limit` poster
+  let cursor = await index.openCursor(null, 'prev');
+
+  while (cursor && results.length < limit) {
+    const item = cursor.value;
+    results.push({
+      id: item.id,
+      timestamp: item.timestamp,
+      totalScore: item.coaching?.totalScore ?? item.totalScore ?? null,
+      imageThumbnail: item.imageThumbnail || null,
+      cameraAngle: item.cameraAngle || null,
+      _meta: item._meta || null,
+    });
+    cursor = await cursor.continue();
+  }
+
+  return results;
 }
 
 /**

@@ -38,6 +38,39 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 console.log('[STARTUP] All imports loaded successfully');
 
+// ─── withRetry — Exponential Backoff ─────────────────────────
+/**
+ * ST3/P3 FIX: Wraps en async funktion med exponential backoff retry.
+ * Återförsöker vid transienta fel (429, 503, nätverksfel).
+ * @param {Function} fn          — async funktion att köra
+ * @param {number}   maxRetries  — max antal återförsök (default 3)
+ * @param {number}   baseDelayMs — initial fördröjning i ms (default 1000)
+ */
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 1000) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const isTransient =
+        err?.status === 429 ||
+        err?.status === 503 ||
+        err?.message?.includes('RESOURCE_EXHAUSTED') ||
+        err?.message?.includes('overloaded') ||
+        err?.code === 'ECONNRESET' ||
+        err?.code === 'ETIMEDOUT';
+
+      if (!isTransient || attempt === maxRetries) throw err;
+
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+      console.warn(`[retry] Attempt ${attempt + 1}/${maxRetries} failed (${err.message}), retrying in ${Math.round(delay)}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -389,10 +422,11 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     if (tier === 'basic') {
 
       try {
-        geminiResult = await analyzeFullSwing(getVideoDataUri(), cameraAngle, language, knowledgeBase);
+        // P3/ST3 FIX: withRetry hanterar 429/503/nätverksfel med exponential backoff
+        geminiResult = await withRetry(() => analyzeFullSwing(getVideoDataUri(), cameraAngle, language, knowledgeBase));
         usedEngines.push('gemini');
       } catch (err) {
-        console.error('[Gemini Full] Error:', err.message);
+        console.error('[Gemini Full] Error after retries:', err.message);
         return res.status(500).json({ error: 'Gemini analysis failed: ' + err.message });
       }
 
@@ -415,22 +449,24 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
 
     if (hasGemini && hasVideo) {
       promises.push(
-        analyzeMotion(getVideoDataUri(), cameraAngle, language)
+        // P3/ST3 FIX: withRetry för Gemini motion analysis
+        withRetry(() => analyzeMotion(getVideoDataUri(), cameraAngle, language))
           .then(r => { geminiResult = r; usedEngines.push('gemini'); })
-          .catch(err => { console.error('[Gemini] Error:', err.message); })
+          .catch(err => { console.error('[Gemini] Error after retries:', err.message); })
       );
     }
 
     if (hasAnthropic) {
       promises.push(
-        analyzePosition(frames, cameraAngle, language, knowledgeBase, {
+        // P3/ST3 FIX: withRetry för Claude position analysis
+        withRetry(() => analyzePosition(frames, cameraAngle, language, knowledgeBase, {
           guestMode: isGuest,
           coachingProfile,
           coachingHistory,
           sequencing,
-        })
+        }))
           .then(r => { claudeResult = r; usedEngines.push('claude'); })
-          .catch(err => { console.error('[Claude] Error:', err.message); })
+          .catch(err => { console.error('[Claude] Error after retries:', err.message); })
       );
     }
 

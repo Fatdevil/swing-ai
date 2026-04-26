@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
-import { getHistory, deleteAnalysis } from '../utils/storage';
+import { getHistoryMeta, deleteAnalysis } from '../utils/storage';
 
 export default function LibraryPage({ onViewAnalysis }) {
   const { t, language } = useLanguage();
@@ -11,25 +11,47 @@ export default function LibraryPage({ onViewAnalysis }) {
   const [compareSelection, setCompareSelection] = useState([]);
 
   useEffect(() => {
-    getHistory().then(setHistory).catch(() => setHistory([]));
+    // P2 FIX: Använd getHistoryMeta (metadata only) istället för getHistory (full data)
+    // Förhindrar att 50x5MB = 250MB laddas in bara för att visa bibliotekslistan.
+    getHistoryMeta(50).then(setHistory).catch(() => setHistory([]));
   }, []);
 
-  // Pre-compute blob URLs and clean up on history change / unmount
+  // P2 FIX: Inkrementell URL cleanup — revokear URLs för borttagna items direkt.
+  // Tidigare: alla URLs revokades vid unmount (läckte under sid-sessionens livslängd).
+  const prevUrlsRef = useRef(new Map());
+
   const thumbnailUrls = useMemo(() => {
+    const currentIds = new Set(history.map(item => item.id || item.timestamp));
+
+    // Revokea URLs för items som tagits bort från history
+    for (const [id, url] of prevUrlsRef.current) {
+      if (!currentIds.has(id)) {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // Bygg ny map — återanvänd befintliga URLs om möjligt
     const urls = new Map();
     history.forEach(item => {
-      if (item.imageThumbnail) {
-        urls.set(item.id || item.timestamp, URL.createObjectURL(item.imageThumbnail));
+      const key = item.id || item.timestamp;
+      if (prevUrlsRef.current.has(key)) {
+        // Återanvänd befintlig URL — ingen ny allokering
+        urls.set(key, prevUrlsRef.current.get(key));
+      } else if (item.imageThumbnail) {
+        urls.set(key, URL.createObjectURL(item.imageThumbnail));
       }
     });
+
+    prevUrlsRef.current = urls;
     return urls;
   }, [history]);
 
+  // Cleanup vid unmount — revokea alla kvarvarande URLs
   useEffect(() => {
     return () => {
-      thumbnailUrls.forEach(url => URL.revokeObjectURL(url));
+      prevUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [thumbnailUrls]);
+  }, []);
 
   const filters = [
     { id: 'all', label: t('filters') },
