@@ -361,6 +361,23 @@ CRITICAL:
 // ─── CRITICAL: Do not export callClaudeAPI since it was removed ────
 
 export async function evaluateChallenge(frames, systemPrompt) {
+  // S5: Validera frames innan anrop till Claude — förhindrar budget-tömning
+  if (!Array.isArray(frames) || frames.length === 0) {
+    throw new Error('frames must be a non-empty array');
+  }
+  const MAX_CHALLENGE_FRAMES = 16;
+  if (frames.length > MAX_CHALLENGE_FRAMES) {
+    throw new Error(`Too many frames (${frames.length}). Maximum is ${MAX_CHALLENGE_FRAMES}.`);
+  }
+  for (let i = 0; i < frames.length; i++) {
+    if (!frames[i].base64 || typeof frames[i].base64 !== 'string') {
+      throw new Error(`Frame ${i + 1} is missing a valid base64 field.`);
+    }
+  }
+  if (!systemPrompt || typeof systemPrompt !== 'string') {
+    throw new Error('systemPrompt must be a non-empty string');
+  }
+
   const client = getClient();
   
   const formattedFrames = frames.map(f => ({

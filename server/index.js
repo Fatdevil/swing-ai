@@ -45,17 +45,65 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ──────────────────────────────────────────────
+
+// S2: Helmet med aktiverad CSP
 app.use(helmet({
-  contentSecurityPolicy: false, // Don't block our own frontend assets if needed
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      mediaSrc: ["'self'", 'blob:'],
+      workerSrc: ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors());
+
+// S1: CORS begränsad till kända origins
+const ALLOWED_ORIGINS = (
+  process.env.ALLOWED_ORIGIN
+    ? process.env.ALLOWED_ORIGIN.split(',')
+    : ['http://localhost:5173', 'http://localhost:3001']
+);
+app.use(cors({
+  origin: (origin, callback) => {
+    // Tillåt requests utan origin (t.ex. curl, Railway health checks)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    console.warn('[CORS] Blocked request from disallowed origin:', origin);
+    callback(new Error(`CORS: Origin ${origin} not allowed`));
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  credentials: false,
+}));
+
 app.use(express.json({ limit: '10mb' })); // Reduced JSON limit now that video is multipart
 
-// Configure Multer for video upload (stored in memory as buffer)
+// S4: Multer med MIME-validering — godtar bara videofiler
+const ALLOWED_VIDEO_MIMETYPES = [
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
+  'video/ogg',
+];
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max video size
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_VIDEO_MIMETYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      console.warn('[upload] Rejected file with MIME type:', file.mimetype);
+      cb(new Error(`Invalid file type: ${file.mimetype}. Only video files are accepted.`), false);
+    }
+  },
 });
 
 // Rate limiting — prevents API key abuse
@@ -99,8 +147,10 @@ const staticPath = join(__dirname, '..', 'app', 'dist');
 app.use(express.static(staticPath));
 
 // ─── Engine Status (for frontend to know what's available) ───
-
-app.get('/api/engines', (req, res) => {
+// S7: Skyddad med requireAuth — exponerar ej konfigurationsdetaljer publikt
+app.get('/api/engines', requireAuth, (req, res) => {
+  // Returnerar alltid true om vi nått hit (nycklar måste finnas för att tjänsten ska fungera)
+  // Avslöjar ej om enskilda nycklar saknas till okända anropare
   res.json({
     claude: Boolean(process.env.ANTHROPIC_API_KEY),
     gemini: Boolean(process.env.GEMINI_API_KEY),
@@ -112,7 +162,8 @@ app.get('/api/engines', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, history = [], language = 'sv', coachingContext = null, systemPromptOverride = null } = req.body;
+    // S6: systemPromptOverride tas ej emot längre (prompt injection prevention)
+    const { message, history = [], language = 'sv', coachingContext = null } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Missing message' });
@@ -130,10 +181,9 @@ app.post('/api/chat', async (req, res) => {
 
     let systemPrompt = '';
 
-    if (systemPromptOverride) {
-      // If the client provides a full system prompt (e.g. for coach onboarding)
-      systemPrompt = systemPromptOverride;
-    } else {
+    // S6: systemPromptOverride borttagen — klienten kan ej styra systemprompten
+    // (Förhindrar prompt injection via API)
+    {
       // Build personality from coaching context or default
       const personalityBlock = coachingContext?.personalityInstructions
         ? `## YOUR COACHING STYLE\n${coachingContext.personalityInstructions}`

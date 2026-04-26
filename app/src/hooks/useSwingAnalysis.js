@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { getSetting } from '../utils/storage';
 import { analyzeSwing, fileToBase64 } from '../utils/api';
 import { getPhaseLabel } from '../utils/videoFrames';
@@ -10,7 +10,14 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
   const [error, setError] = useState(null);
 
   const [videoFile, setVideoFile] = useState(null);
-  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoUrl, _setVideoUrl] = useState(null); // D3: internt state — använd videoUrlRef för revoking
+  const videoUrlRef = useRef(null);                // D3: ref för att undvika stale closure i resetAll
+
+  // Wrapper som håller ref synkad med state
+  const setVideoUrl = (url) => {
+    videoUrlRef.current = url;
+    _setVideoUrl(url);
+  };
   const [frames, setFrames] = useState(null);
   const [poseResults, setPoseResults] = useState(null);
   const [sequencingData, setSequencingData] = useState(null);
@@ -271,9 +278,15 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
         }
 
         try {
-          const { generatePlan } = await import('../utils/trainingPlan.js');
-          const profile = getSetting('coaching_profile') || {};
-          generatePlan(result, profile, language);
+          // D4 FIX: Generera bara ny plan om ingen aktiv plan finns.
+          // Utan denna check skrivs pågående 4-veckorsplaner över vid varje analys.
+          const { generatePlan, hasActivePlan } = await import('../utils/trainingPlan.js');
+          if (!hasActivePlan()) {
+            const profile = getSetting('coaching_profile') || {};
+            generatePlan(result, profile, language);
+          } else {
+            console.log('[Plan] Active plan exists — skipping generation to preserve progress');
+          }
         } catch (planErr) {
           console.warn('Training plan generation skipped:', planErr.message);
         }
@@ -297,13 +310,18 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
   };
 
   const resetAll = () => {
-    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    // D3 FIX: Använd videoUrlRef.current istället för videoUrl från closure.
+    // videoUrl-state kan vara stale inuti funktionen vid anropstidpunkten.
+    if (videoUrlRef.current) {
+      URL.revokeObjectURL(videoUrlRef.current);
+      videoUrlRef.current = null;
+    }
     setVideoFile(null);
-    setVideoUrl(null);
+    _setVideoUrl(null);
     setFrames(null);
     setPoseResults(null);
     setSequencingData(null);
-    setCameraAngle('side');
+    setCameraAngle('auto'); // D3 FIX: var felaktigt 'side', initial state är 'auto'
     setStep('upload');
     setError(null);
     setProgress('');

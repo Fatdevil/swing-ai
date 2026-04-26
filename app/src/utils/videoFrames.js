@@ -332,9 +332,12 @@ function captureFrameRaw(video, canvas, ctx, timestamp) {
  * Create a thumbnail from the middle frame
  */
 export function createVideoThumbnail(frames, maxWidth = 200) {
-  if (!frames || frames.length === 0) return null;
+  // ST2 FIX: Returnera Promise (inte null) — anropare väntar alltid med await.
+  if (!frames || frames.length === 0) return Promise.resolve(null);
 
   const middleFrame = frames[Math.floor(frames.length / 2)];
+  if (!middleFrame?.base64) return Promise.resolve(null);
+
   const img = new Image();
 
   return new Promise((resolve) => {
@@ -350,6 +353,11 @@ export function createVideoThumbnail(frames, maxWidth = 200) {
         'image/jpeg',
         0.7
       );
+    };
+    // ST2 FIX: onerror förhindrar evig häng vid ogiltig base64-data.
+    img.onerror = () => {
+      console.warn('[thumbnail] Failed to load frame image — resolving with null');
+      resolve(null);
     };
     img.src = middleFrame.base64;
   });

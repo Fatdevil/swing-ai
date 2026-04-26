@@ -494,10 +494,9 @@ export function createHomographyAccumulator() {
 
     /** Apply a pure translation fallback. */
     applyTranslation(dx, dy) {
-      // Equivalent to affine [1, 0, dx, 0, 1, dy]
-      H[2] += dx * H[8];
-      H[5] += dy * H[8];
-      // Simplified: H[2] += dx, H[5] += dy for pure affine case
+      // D1 FIX: Borttagna dubbla mutationsrader som orsakade ball-tracking-drift.
+      // Fel: H[2] += dx * H[8] SEDAN H[2] = ... + dx gav original + dx*H[8] + dx.
+      // Korrekt: enbart ren translation (identity-affine med offset):
       H[2] = H[0] * 0 + H[1] * 0 + H[2] + dx;
       H[5] = H[3] * 0 + H[4] * 0 + H[5] + dy;
     },

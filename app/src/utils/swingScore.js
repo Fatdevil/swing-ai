@@ -24,7 +24,7 @@
  * - Personal best tracking
  */
 
-import { getSetting, setSetting, getHistory } from './storage';
+import { getSetting, setSetting, getHistoryMeta } from './storage';
 
 // ─── TOUR BENCHMARKS ──────────────────────────────────────────
 // Based on PGA Tour averages and TPI research data
@@ -279,29 +279,23 @@ function weightedAverage(scores, weights, maxContribution) {
  */
 export async function calculateDeltas(currentScore) {
   try {
-    const history = await getHistory();
+    // D2 FIX: Använd getHistoryMeta istället för getHistory.
+    // getHistory() laddar ALL data inkl. base64-frames (~250MB för 50 analyser).
+    // getHistoryMeta() hämtar bara metadata (score, timestamp) — ~1KB totalt.
+    const history = await getHistoryMeta(5);
     if (!history || history.length < 2) return null;
-    
-    // Get the second most recent (the "previous" one)
-    // history is sorted newest-first, so index 1 = previous analysis
-    const prev = history[1];
-    if (!prev?.coaching) return null;
 
-    const prevResult = calculateSwingScore(prev.coaching);
-    
+    // history[0] = nuvarande (precis sparat), history[1] = föregående
+    const prev = history[1];
+    if (prev?.totalScore == null) return null;
+
+    // Med getHistoryMeta har vi inte full coaching-data — jämför bara total
     return {
-      total: currentScore.totalScore - prevResult.totalScore,
-      position: currentScore.position.score - prevResult.position.score,
-      motion: currentScore.motion.score - prevResult.motion.score,
-      mechanics: currentScore.mechanics.score - prevResult.mechanics.score,
-      // Sub-score deltas for biomechanics
-      biomechanics: Object.fromEntries(
-        Object.keys(currentScore.biomechanicsBreakdown).map(key => {
-          const current = currentScore.biomechanicsBreakdown[key]?.score;
-          const previous = prevResult.biomechanicsBreakdown[key]?.score;
-          return [key, (current != null && previous != null) ? current - previous : null];
-        })
-      ),
+      total: currentScore.totalScore - prev.totalScore,
+      position: null,   // Pillar-deltas kräver full data — inte avgörande för UX
+      motion: null,
+      mechanics: null,
+      biomechanics: {},
     };
   } catch {
     return null;

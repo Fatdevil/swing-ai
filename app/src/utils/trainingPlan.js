@@ -25,6 +25,19 @@ export function savePlan(plan) {
   setSetting('training_plan', plan);
 }
 
+/**
+ * D4 FIX: Kontrollera om en aktiv plan redan finns och inte gått ut.
+ * Förhindrar att pågående 4-veckorsplaner skrivs över vid varje ny analys.
+ * @returns {boolean} true om en aktiv plan existerar med tid kvar
+ */
+export function hasActivePlan() {
+  const plan = getActivePlan();
+  if (!plan || !plan.createdAt) return false;
+  const totalWeeks = Array.isArray(plan.weeks) ? plan.weeks.length : 4;
+  const planEndMs = plan.createdAt + totalWeeks * 7 * 24 * 60 * 60 * 1000;
+  return Date.now() < planEndMs;
+}
+
 export function clearPlan() {
   setSetting('training_plan', null);
 }

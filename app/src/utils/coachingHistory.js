@@ -6,7 +6,7 @@
  * 2. Inject into Claude's next analysis prompt
  */
 
-import { getHistory, getSetting, setSetting } from './storage';
+import { getHistory, getSetting, setSetting, clearHistory } from './storage';
 import { buildPlanPrompt } from './trainingPlan';
 import { buildJournalPrompt } from './swingJournal';
 
@@ -203,8 +203,35 @@ export function reactivateDrill(drillId) {
 }
 
 /**
- * Clear all coaching history (drill log)
+ * Rensar bara drill-loggen (tilldelade övningar).
+ * OBS: Rensar INTE IndexedDB-analyser.
+ * För att rensa ALLT, använd clearAllCoachingData().
+ */
+export function clearDrillLog() {
+  setSetting('drill_log', []);
+}
+
+/**
+ * @deprecated Använd clearDrillLog() eller clearAllCoachingData() istället.
+ * Behålls för bakwärdskompatibilitet tills alla anropare är uppdaterade.
  */
 export function clearCoachingHistory() {
+  clearDrillLog();
+}
+
+/**
+ * D5 FIX: Rensar ALL coaching-data:
+ * - drill_log (localStorage)
+ * - coaching_profile (localStorage)
+ * - Alla analyser i IndexedDB
+ *
+ * Används från ProfilePage “Radera allt”-knappen.
+ */
+export async function clearAllCoachingData() {
   setSetting('drill_log', []);
+  setSetting('coaching_profile', null);
+  setSetting('training_plan', null);
+  setSetting('personal_bests', null);
+  setSetting('swing_journal', null);
+  await clearHistory(); // IndexedDB-analyser
 }
