@@ -3,7 +3,6 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getSetting, setSetting } from '../utils/storage';
 import { getAuth } from 'firebase/auth';
 import { COACHING_APPROACHES } from '../utils/referencePlayers';
-import CoachDashboard from '../components/CoachDashboard';
 
 /**
  * CoachModePage — Streamlined coaching onboarding

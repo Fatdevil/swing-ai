@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { getSetting } from '../utils/storage';
-import { analyzeSwing, fileToBase64 } from '../utils/api';
+import { analyzeSwing } from '../utils/api';
 import { getPhaseLabel } from '../utils/videoFrames';
 
 export function useSwingAnalysis({ language, onAnalysisComplete }) {

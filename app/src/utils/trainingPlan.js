@@ -13,7 +13,7 @@
  */
 
 import { getSetting, setSetting } from './storage';
-import { DRILL_LIBRARY, FAULT_PROFILES } from './golfKnowledge';
+import { DRILL_LIBRARY } from './golfKnowledge';
 
 // ─── PLAN STORAGE ──────────────────────────────────────────────
 

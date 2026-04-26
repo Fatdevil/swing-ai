@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
-import ScoreGauge from '../components/ScoreGauge';
 import { getPhaseLabel } from '../utils/videoFrames';
-import MetricsPanel from '../components/MetricsPanel';
 import { generateScoreCard, shareImage } from '../utils/shareCard';
-import SequencingPanel from '../components/SequencingPanel';
-import TempoPanel from '../components/TempoPanel';
-import { getScoreGrade, TOUR_BENCHMARKS } from '../utils/swingScore';
 import { getHistory } from '../utils/storage';
 
 export default function ResultsPage({ data: dataProp, onBack }) {
