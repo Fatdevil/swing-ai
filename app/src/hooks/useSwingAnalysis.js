@@ -208,7 +208,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
       if (!guestMode) {
         try {
           const profileStr = getSetting('coaching_profile');
-          if (profileStr) coachingProfile = profileStr;
+          if (profileStr) coachingProfile = typeof profileStr === 'object' ? JSON.stringify(profileStr) : profileStr;
         } catch (e) { console.warn('[analyze] coaching_profile load failed:', e.message); }
         try {
           const { getCoachingHistory, buildCoachingHistoryPrompt } = await import('../utils/coachingHistory.js');

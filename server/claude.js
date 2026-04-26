@@ -214,7 +214,7 @@ Valid JSON only — no markdown, no code fences:
   });
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 4000,
     system: [
       {
@@ -341,7 +341,7 @@ CRITICAL:
 - Use the categories and biomechanics from the position analysis as the base, but enrich with motion insights`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 5000,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -390,7 +390,7 @@ export async function evaluateChallenge(frames, systemPrompt) {
   }));
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-3-5-sonnet-20241022',
     max_tokens: 2048,
     system: systemPrompt,
     messages: [

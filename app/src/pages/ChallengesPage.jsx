@@ -4,7 +4,6 @@ import {
   getChallengesWithResults,
   saveChallengeResult,
   DIFFICULTY,
-  buildChallengePrompt,
 } from '../utils/challenges';
 import { REFERENCE_PLAYERS } from '../utils/referencePlayers';
 import { getSetting } from '../utils/storage';
@@ -86,8 +85,8 @@ export default function ChallengesPage({ onBack, onNavigate }) {
         };
       });
 
-      // Call backend with challenge-specific prompt
-      const challengePrompt = buildChallengePrompt(selected.playerId, language);
+      // Call backend with challenge Id
+
 
       const auth = getAuth();
       const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
@@ -100,7 +99,8 @@ export default function ChallengesPage({ onBack, onNavigate }) {
         headers,
         body: JSON.stringify({
           frames: frameData,
-          systemPrompt: challengePrompt,
+          challengeId: selected.playerId,
+          language: language,
         }),
       });
 

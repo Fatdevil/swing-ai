@@ -105,20 +105,18 @@ export async function requireAuth(req, res, next) {
  * S3: FIREBASE_PROJECT_ID är obligatorisk i produktion.
  * Utan den accepteras tokens från VILKET Firebase-projekt som helst.
  */
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+if (process.env.NODE_ENV === 'production' && !PROJECT_ID) {
+  throw new Error(
+    '[Auth] FATAL: FIREBASE_PROJECT_ID is required in production. ' +
+    'Set the FIREBASE_PROJECT_ID environment variable in Railway.'
+  );
+}
+
 function buildVerifyOptions() {
   const options = { algorithms: ['RS256'] };
 
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-
-  if (!projectId) {
-    if (process.env.NODE_ENV === 'production') {
-      // I produktion: hård krasch vid startup — bättre att veta direkt än att köra osäkert
-      throw new Error(
-        '[Auth] FATAL: FIREBASE_PROJECT_ID is required in production. ' +
-        'Set the FIREBASE_PROJECT_ID environment variable in Railway.'
-      );
-    }
-    // I dev: varna men fortsätt
+  if (!PROJECT_ID) {
     console.warn(
       '[Auth] ⚠️ FIREBASE_PROJECT_ID not set — audience/issuer validation SKIPPED. ' +
       'This is only acceptable in local development.'
@@ -126,9 +124,8 @@ function buildVerifyOptions() {
     return options;
   }
 
-  options.audience = projectId;
-  options.issuer = `https://securetoken.google.com/${projectId}`;
-  console.log('[Auth] JWT validation configured for project:', projectId);
+  options.audience = PROJECT_ID;
+  options.issuer = `https://securetoken.google.com/${PROJECT_ID}`;
 
   return options;
 }

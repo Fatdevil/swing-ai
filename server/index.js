@@ -35,6 +35,7 @@ import { analyzeMotion, analyzeFullSwing } from './gemini.js';
 import { analyzePosition, summarizeAnalysis } from './claude.js';
 import { requireAuth } from './auth.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { validateRequest, analyzeSchema, challengeSchema } from './schemaValidation.js';
 
 console.log('[STARTUP] All imports loaded successfully');
 
@@ -68,7 +69,7 @@ async function withRetry(fn, maxRetries = 3, baseDelayMs = 1000) {
       await new Promise(r => setTimeout(r, delay));
     }
   }
-  throw lastErr;
+  }
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -290,19 +291,13 @@ ${historyBlock}
 // ─── Challenge Evaluation (Anthropic) ──────────────────────────
 
 import { evaluateChallenge } from './claude.js';
+import { buildChallengePrompt } from './challengeUtils.js';
 
-app.post('/api/challenge', aiLimiter, requireAuth, async (req, res) => {
+app.post('/api/challenge', aiLimiter, requireAuth, validateRequest(challengeSchema), async (req, res) => {
   try {
-    const { frames, systemPrompt } = req.body;
+    const { frames, challengeId, language } = req.body;
     
-    if (!frames || !systemPrompt) {
-      return res.status(400).json({ error: 'Missing frames or systemPrompt' });
-    }
-    
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'Anthropic API key not configured for Challenges' });
-    }
-
+    const systemPrompt = buildChallengePrompt(challengeId, language);
     const result = await evaluateChallenge(frames, systemPrompt);
     res.json(result);
   } catch (err) {
@@ -311,21 +306,34 @@ app.post('/api/challenge', aiLimiter, requireAuth, async (req, res) => {
   }
 });
 
+const uploadMiddleware = upload.single('video');
+
 // ─── Full Dual-Engine Analysis ──────────────────────────────
 
-app.post('/api/analyze', upload.single('video'), async (req, res) => {
+app.post('/api/analyze', (req, res, next) => {
+  uploadMiddleware(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: 'Video upload error: ' + err.message });
+    } else if (err) {
+      return res.status(500).json({ error: 'Server error during upload: ' + err.message });
+    }
+    next();
+  });
+}, validateRequest(analyzeSchema), async (req, res) => {
   const startTime = Date.now();
 
   try {
     const {
       cameraAngle,
-      language = 'sv',
-      guestMode = 'false',
-      knowledgeBase = '',
-      coachingProfile = '',
-      coachingHistory = '',
+      language,
+      guestMode,
+      knowledgeBase,
+      coachingProfile,
+      coachingHistory,
+      tier,
+      frames,
+      sequencing
     } = req.body;
-    let tier = req.body.tier || 'basic';
 
     // Keep video as raw buffer — only convert to base64 when Gemini needs it
     let videoBuffer = req.file ? req.file.buffer : null;
@@ -335,55 +343,18 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       video: fallbackVideo, // in case someone still sends it in JSON (already base64)
     } = req.body;
 
-    // For Gemini: convert buffer to data-URI only when needed
+    let cachedVideoDataUri = null;
     const getVideoDataUri = () => {
-      if (videoBuffer) return `data:${videoMimeType};base64,${videoBuffer.toString('base64')}`;
+      if (cachedVideoDataUri) return cachedVideoDataUri;
+      if (videoBuffer) {
+        cachedVideoDataUri = `data:${videoMimeType};base64,${videoBuffer.toString('base64')}`;
+        return cachedVideoDataUri;
+      }
       return fallbackVideo || null;
     };
     const hasVideo = Boolean(videoBuffer || fallbackVideo);
 
-    let frames = [];
-    if (req.body.frames) {
-      try {
-        frames = JSON.parse(req.body.frames);
-      } catch (e) {
-        console.error('[analyze] Failed to parse frames JSON:', e.message);
-        frames = [];
-      }
-    }
-
-    // ── INPUT VALIDATION ──
-    const MAX_FRAMES = 16;
-    const MAX_FRAME_SIZE = 5 * 1024 * 1024; // 5MB per frame (base64)
-
-    if (frames.length > MAX_FRAMES) {
-      return res.status(400).json({ error: `Too many frames (${frames.length}). Maximum is ${MAX_FRAMES}.` });
-    }
-
-    for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
-      if (!frame.phase || typeof frame.phase !== 'string') {
-        return res.status(400).json({ error: `Frame ${i + 1} missing valid 'phase' field.` });
-      }
-      if (!frame.base64 || typeof frame.base64 !== 'string') {
-        return res.status(400).json({ error: `Frame ${i + 1} missing valid 'base64' field.` });
-      }
-      if (frame.base64.length > MAX_FRAME_SIZE) {
-        return res.status(400).json({ error: `Frame ${i + 1} exceeds max size (${(frame.base64.length / 1024 / 1024).toFixed(1)}MB > 5MB).` });
-      }
-    }
-
-    let sequencing = null;
-    if (req.body.sequencing) {
-      try {
-        sequencing = JSON.parse(req.body.sequencing);
-      } catch (e) {
-        console.error('[analyze] Failed to parse sequencing JSON:', e.message);
-        sequencing = null;
-      }
-    }
-
-    const isGuest = guestMode === 'true';
+    const isGuest = guestMode;
 
     if (!frames || frames.length === 0) {
       // For basic tier with video, frames are optional (Gemini analyzes video directly)
@@ -505,10 +476,13 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     else if (claudeResult) {
       finalResult = claudeResult;
     }
-    // Single engine fallback: only Gemini (shouldn't happen in premium, but just in case)
     else if (geminiResult) {
       finalResult = {
         totalScore: geminiResult.overallMotionGrade || 50,
+        estimatedHandicap: null,
+        recommendedDrill: null,
+        causalChain: null,
+        biomechanics: {},
         motionAnalysis: geminiResult,
         categories: [],
         faultsDetected: geminiResult.keyMotionFaults || [],

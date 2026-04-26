@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useAuth } from '../auth/AuthContext';
 import { clearHistory, getHistory } from '../utils/storage';
+import { getEngineStatus } from '../utils/api';
 
 export default function ProfilePage() {
   const { t, language, setLanguage } = useLanguage();
@@ -15,7 +16,7 @@ export default function ProfilePage() {
   useEffect(() => {
     getHistory().then(history => {
       if (history.length === 0) return;
-      const scores = history.map(h => h.totalScore).filter(Boolean);
+      const scores = history.map(h => h.coaching?.totalScore ?? h.totalScore).filter(score => typeof score === 'number');
       setStats({
         total: history.length,
         avgScore: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
@@ -27,7 +28,7 @@ export default function ProfilePage() {
     }).catch(() => {});
 
     // Check engine status
-    fetch('/api/engines').then(r => r.json()).then(setEngines).catch(() => {});
+    getEngineStatus().then(setEngines).catch(() => {});
   }, [cleared]);
 
   const handleClearHistory = async () => {

@@ -12,7 +12,12 @@ import { getAuth } from 'firebase/auth';
  */
 export async function getEngineStatus() {
   try {
-    const res = await fetch('/api/engines');
+    const auth = getAuth();
+    const token = auth.currentUser ? await auth.currentUser.getIdToken(true) : '';
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/engines', { headers });
     return await res.json();
   } catch {
     return { claude: false, gemini: false, dualEngine: false };
