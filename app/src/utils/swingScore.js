@@ -210,22 +210,30 @@ export function calculateSwingScore(coaching, mediapipeData = null, motionData =
     leadArmExtension: { value: mediapipeData?.leadArmExtension?.value, score: leadArmScore(mediapipeData?.leadArmExtension?.value), tour: TOUR_BENCHMARKS.leadArmExtension },
   };
 
+  // B1 FIX: normalizePillar klampar till 0-100 och sätter null om
+  // bidraget är så litet att det indikerar inga användbara data.
+  // Tidigare: positionTotal / 0.50 kunde ge 100 om bara 1 kategori fanns.
+  const normalizePillar = (total, maxContribution, minThreshold = 0.05) => {
+    if (total < maxContribution * minThreshold) return null; // Otillräckliga data
+    return Math.min(100, Math.max(0, Math.round(total / maxContribution)));
+  };
+
   return {
     totalScore,
 
     // Three pillars
     position: {
-      score: Math.round(positionTotal / 0.50), // Normalize to 0-100 scale
+      score: normalizePillar(positionTotal, 0.50), // null = otillräckliga kategorier
       weight: '50%',
       breakdown: positionScores,
     },
     motion: {
-      score: Math.round(motionTotal / 0.30), // Normalize to 0-100 scale
+      score: normalizePillar(motionTotal, 0.30),
       weight: '30%',
       breakdown: motionScores,
     },
     mechanics: {
-      score: Math.round(mechanicsTotal / 0.20), // Normalize to 0-100 scale
+      score: normalizePillar(mechanicsTotal, 0.20),
       weight: '20%',
       breakdown: mechanicsScores,
     },

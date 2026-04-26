@@ -28,6 +28,13 @@ export function analyzeSequencing(frameResults) {
   });
   if (validFrames.length < 4) return null;
 
+  // B2 FIX: Kontrollera om alla timestamps är 0 — dt faller då tillbaka på 0.033s konstant.
+  // Sekvensordningen kan ändå vara korrekt, men hastighetsmagnituder blir opålitliga.
+  const allZeroTimestamps = validFrames.every(f => !f.timestamp || f.timestamp === 0);
+  if (allZeroTimestamps) {
+    console.warn('[kinematic] All timestamps are 0 — velocity magnitudes unreliable, using constant dt=0.033s. Sequence order may still be valid.');
+  }
+
   // Helper to get best available landmarks
   const getLM = (f) => f.worldLandmarks || f.landmarks;
 
@@ -166,6 +173,7 @@ export function analyzeSequencing(frameResults) {
     errors,
     peakTimings: peaks,
     frameCount: normHips.length,
+    timestampReliable: !allZeroTimestamps, // B2: false = dt är konstant 0.033s, ej uppmätt
   };
 }
 
