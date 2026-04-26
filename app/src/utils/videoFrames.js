@@ -280,14 +280,17 @@ function findMaxSpeed(speedArr, start, end) {
  * Capture a single frame at a specific timestamp (full quality)
  */
 function captureFrame(video, canvas, ctx, timestamp) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Frame capture timed out at ${timestamp}s`)), 8000);
     video.currentTime = timestamp;
     video.onseeked = () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       canvas.toBlob(
         (blob) => {
+          if (!blob) { clearTimeout(timeout); reject(new Error('Canvas toBlob returned null')); return; }
           const reader = new FileReader();
           reader.onloadend = () => {
+            clearTimeout(timeout);
             resolve({
               blob,
               base64: reader.result,
@@ -296,12 +299,14 @@ function captureFrame(video, canvas, ctx, timestamp) {
               height: canvas.height,
             });
           };
+          reader.onerror = () => { clearTimeout(timeout); reject(new Error('FileReader failed')); };
           reader.readAsDataURL(blob);
         },
         'image/jpeg',
         0.85
       );
     };
+    video.onerror = () => { clearTimeout(timeout); reject(new Error('Video seek error')); };
   });
 }
 
@@ -309,14 +314,17 @@ function captureFrame(video, canvas, ctx, timestamp) {
  * Capture a frame (raw — no blob/base64, just pixel data)
  */
 function captureFrameRaw(video, canvas, ctx, timestamp) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Raw frame capture timed out at ${timestamp}s`)), 8000);
     video.currentTime = timestamp;
     video.onseeked = () => {
+      clearTimeout(timeout);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       resolve({
         timestamp: Math.round(timestamp * 1000) / 1000,
       });
     };
+    video.onerror = () => { clearTimeout(timeout); reject(new Error('Video seek error')); };
   });
 }
 

@@ -106,9 +106,10 @@ export function setSetting(key, value) {
  * Compress image to thumbnail for list display
  */
 export function createThumbnail(imageBlob, maxWidth = 200) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(imageBlob);
+    const timeout = setTimeout(() => { URL.revokeObjectURL(url); reject(new Error('Thumbnail creation timed out')); }, 5000);
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ratio = maxWidth / img.width;
@@ -118,6 +119,7 @@ export function createThumbnail(imageBlob, maxWidth = 200) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       canvas.toBlob(
         (blob) => {
+          clearTimeout(timeout);
           URL.revokeObjectURL(url);
           resolve(blob);
         },
@@ -125,6 +127,7 @@ export function createThumbnail(imageBlob, maxWidth = 200) {
         0.7
       );
     };
+    img.onerror = () => { clearTimeout(timeout); URL.revokeObjectURL(url); reject(new Error('Image load failed for thumbnail')); };
     img.src = url;
   });
 }

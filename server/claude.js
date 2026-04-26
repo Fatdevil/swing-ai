@@ -7,9 +7,9 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { validatePositionResponse } from './validateResponse.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -225,7 +225,7 @@ Valid JSON only — no markdown, no code fences:
 
   const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   try {
-    return JSON.parse(jsonStr);
+    return validatePositionResponse(JSON.parse(jsonStr));
   } catch (e) {
     console.error('Claude position JSON parse error. First 500 chars:', text.slice(0, 500));
     throw new Error(`Claude returned invalid JSON for position analysis. Try again or re-record. (Parse error: ${e.message})`);

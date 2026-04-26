@@ -9,6 +9,7 @@
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { validatePositionResponse, validateMotionResponse } from './validateResponse.js';
 
 const AI_TIMEOUT_MS = 90_000; // 90 seconds max per AI call
 
@@ -119,7 +120,7 @@ Valid JSON only — no markdown, no code fences:
     { text: prompt },
   ]));
 
-  return parseJSON(result.response.text());
+  return validateMotionResponse(parseJSON(result.response.text()));
 }
 
 
@@ -230,5 +231,5 @@ Valid JSON only — no markdown, no code fences:
     { text: prompt },
   ]));
 
-  return parseJSON(result.response.text());
+  return validatePositionResponse(parseJSON(result.response.text()));
 }

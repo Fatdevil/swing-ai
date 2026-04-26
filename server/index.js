@@ -239,8 +239,8 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       knowledgeBase = '',
       coachingProfile = '',
       coachingHistory = '',
-      tier = 'basic',
     } = req.body;
+    let tier = req.body.tier || 'basic';
 
     // Multer places the file in req.file, we must convert it back to Base64 for Gemini/Claude if needed.
     // Or send it directly if SDK supports it.
@@ -262,6 +262,27 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       } catch (e) {
         console.error('[analyze] Failed to parse frames JSON:', e.message);
         frames = [];
+      }
+    }
+
+    // ── INPUT VALIDATION ──
+    const MAX_FRAMES = 16;
+    const MAX_FRAME_SIZE = 5 * 1024 * 1024; // 5MB per frame (base64)
+
+    if (frames.length > MAX_FRAMES) {
+      return res.status(400).json({ error: `Too many frames (${frames.length}). Maximum is ${MAX_FRAMES}.` });
+    }
+
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
+      if (!frame.phase || typeof frame.phase !== 'string') {
+        return res.status(400).json({ error: `Frame ${i + 1} missing valid 'phase' field.` });
+      }
+      if (!frame.base64 || typeof frame.base64 !== 'string') {
+        return res.status(400).json({ error: `Frame ${i + 1} missing valid 'base64' field.` });
+      }
+      if (frame.base64.length > MAX_FRAME_SIZE) {
+        return res.status(400).json({ error: `Frame ${i + 1} exceeds max size (${(frame.base64.length / 1024 / 1024).toFixed(1)}MB > 5MB).` });
       }
     }
 

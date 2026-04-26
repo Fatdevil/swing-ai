@@ -19,7 +19,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
   const [tier, setTier] = useState('premium');
   const [guestMode, setGuestMode] = useState(false);
 
-  const extractVideoFrames = async (file) => {
+  const extractVideoFrames = useCallback(async (file) => {
     setStep('extracting');
     setProgress(language === 'sv' ? 'Extraherar nyckelframes...' : 'Extracting key frames...');
     try {
@@ -33,7 +33,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
       setError(err.message);
       setStep('upload');
     }
-  };
+  }, [language]);
 
   const handleFileSelect = useCallback((file) => {
     if (!file) return;
@@ -45,7 +45,7 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
     setVideoUrl(URL.createObjectURL(file));
     setError(null);
     extractVideoFrames(file);
-  }, [language]);
+  }, [language, extractVideoFrames]);
 
   const handleAnalyzePose = async () => {
     if (!frames) return;

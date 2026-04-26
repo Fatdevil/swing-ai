@@ -99,10 +99,12 @@ function buildVerifyOptions() {
   const options = { algorithms: ['RS256'] };
 
   // If PROJECT_ID is available, enforce audience and issuer
-  const projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
   if (projectId) {
     options.audience = projectId;
     options.issuer = `https://securetoken.google.com/${projectId}`;
+  } else {
+    console.warn('[Auth] ⚠️ FIREBASE_PROJECT_ID not set — audience/issuer validation SKIPPED. Set this env var for production security.');
   }
 
   return options;

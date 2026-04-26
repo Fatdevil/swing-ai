@@ -72,8 +72,8 @@ export default function ChallengesPage({ onBack, onNavigate }) {
 
     try {
       // Extract frames from video
-      const { extractKeyFrames } = await import('../utils/videoFrames.js');
-      const frames = await extractKeyFrames(file, 8);
+      const { extractFrames } = await import('../utils/videoFrames.js');
+      const frames = await extractFrames(file, 8);
 
       setProgress(sv ? 'Analyserar likhet...' : 'Analyzing similarity...');
 

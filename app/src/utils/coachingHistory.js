@@ -201,3 +201,10 @@ export function reactivateDrill(drillId) {
     setSetting('drill_log', log);
   }
 }
+
+/**
+ * Clear all coaching history (drill log)
+ */
+export function clearCoachingHistory() {
+  setSetting('drill_log', []);
+}

@@ -51,24 +51,7 @@ export default function App() {
     };
   }, []);
 
-  // Loading state — Firebase checking auth
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <span className="material-symbols-outlined text-primary-fixed text-4xl animate-spin">progress_activity</span>
-          <span className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">SWING_AI</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Not logged in AND Firebase is configured — show login
-  if (!user && hasAuth) {
-    return <LoginPage />;
-  }
-
-  // Navigation helpers (backwards-compatible with old onNavigate pattern)
+  // ── Navigation hooks (MUST be before any conditional returns — Rules of Hooks) ──
   const handleNavigate = useCallback((page) => {
     const routeMap = {
       home: '/',
@@ -94,6 +77,23 @@ export default function App() {
     setAnalysisData(data);
     navigate('/results');
   }, [navigate]);
+
+  // Loading state — Firebase checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <span className="material-symbols-outlined text-primary-fixed text-4xl animate-spin">progress_activity</span>
+          <span className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">SWING_AI</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in AND Firebase is configured — show login
+  if (!user && hasAuth) {
+    return <LoginPage />;
+  }
 
   // Determine active page from URL path for BottomNavBar highlighting
   const pathToPage = {

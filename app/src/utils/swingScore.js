@@ -244,17 +244,27 @@ function weightedAverage(scores, weights, maxContribution) {
   let totalWeight = 0;
   let totalScore = 0;
   let availableWeight = 0;
+  let availableCount = 0;
 
   for (const [key, weight] of Object.entries(weights)) {
     const score = scores[key];
     if (score != null && !isNaN(score)) {
       totalScore += score * weight;
       totalWeight += weight;
+      availableCount++;
     }
     availableWeight += weight;
   }
 
   if (totalWeight === 0) return maxContribution * 0.5; // Default to 50% if no data
+
+  // Require at least 2 subscores before scaling up — a single score
+  // shouldn't be extrapolated to represent the entire pillar
+  const totalKeys = Object.keys(weights).length;
+  if (availableCount < 2 && totalKeys > 2) {
+    // Conservative: use raw weighted score without scale-up
+    return (totalScore / totalWeight) * (totalWeight / availableWeight) * maxContribution;
+  }
 
   // Scale up to fill the maxContribution proportionally
   const scaleFactor = availableWeight / totalWeight;
@@ -273,7 +283,8 @@ export async function calculateDeltas(currentScore) {
     if (!history || history.length < 2) return null;
     
     // Get the second most recent (the "previous" one)
-    const prev = history[history.length - 2];
+    // history is sorted newest-first, so index 1 = previous analysis
+    const prev = history[1];
     if (!prev?.coaching) return null;
 
     const prevResult = calculateSwingScore(prev.coaching);
