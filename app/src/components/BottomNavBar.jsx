@@ -9,6 +9,7 @@ const tabs = [
   { id: 'profile', icon: 'person', labelKey: 'profile' },
 ];
 
+// U1: WCAG 2.1 AA — aria-label, aria-current, aria-hidden for screen readers
 export default function BottomNavBar({ activePage, onNavigate }) {
   const { t } = useLanguage();
 
@@ -24,8 +25,8 @@ export default function BottomNavBar({ activePage, onNavigate }) {
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
-              aria-label={t(tab.labelKey)}       {/* U1: skärmläsare läser ut sidnamnet */}
-              aria-current={isActive ? 'page' : undefined} {/* U1: markerar aktiv sida */}
+              aria-label={t(tab.labelKey)}
+              aria-current={isActive ? 'page' : undefined}
               className={`flex flex-col items-center justify-center transition-all active:scale-90 duration-300 ease-out ${
                 isActive
                   ? 'text-primary-fixed bg-primary-fixed/10 rounded-full py-1 px-4'
@@ -33,12 +34,15 @@ export default function BottomNavBar({ activePage, onNavigate }) {
               }`}
             >
               <span
-                aria-hidden="true" {/* U1: ikonen är dekorativ — etiketten bebärs av aria-label ovan */}
+                aria-hidden="true"
                 className={isActive ? 'material-symbols-filled' : 'material-symbols-outlined'}
               >
                 {tab.icon}
               </span>
-              <span className="font-label text-[10px] font-bold uppercase tracking-widest mt-1" aria-hidden="true">
+              <span
+                aria-hidden="true"
+                className="font-label text-[10px] font-bold uppercase tracking-widest mt-1"
+              >
                 {t(tab.labelKey)}
               </span>
             </button>
