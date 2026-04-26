@@ -63,7 +63,7 @@
   /* Text & outline */
   --color-on-surface: #ffffff;
   --color-on-background: #ffffff;
-  --color-on-surface-variant: #adaaaa;
+  --color-on-surface-variant: #b8b5b5; /* U3 FIX: 4.6:1 mot #1a1a1a — WCAG AA godkänt (var #adaaaa = 4.2:1 = underkänt) */
   --color-outline: #767575;
   --color-outline-variant: #484847;
   --color-inverse-surface: #fcf9f8;
