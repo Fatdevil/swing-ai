@@ -259,8 +259,10 @@ ${historyBlock}
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash-preview-04-17',
+    // A2 FIX: Chat-modell via env-variabel
+    const chatModel = process.env.GEMINI_FLASH_MODEL || 'gemini-2.5-flash-preview-04-17';
+    const model = genAI.getGenerativeModel({
+      model: chatModel,
       systemInstruction: systemPrompt
     });
 
