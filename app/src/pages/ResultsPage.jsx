@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import ScoreGauge from '../components/ScoreGauge';
 import { getPhaseLabel } from '../utils/videoFrames';
@@ -7,13 +7,26 @@ import { generateScoreCard, shareImage } from '../utils/shareCard';
 import SequencingPanel from '../components/SequencingPanel';
 import TempoPanel from '../components/TempoPanel';
 import { getScoreGrade, TOUR_BENCHMARKS } from '../utils/swingScore';
+import { getHistory } from '../utils/storage';
 
-export default function ResultsPage({ data, onBack }) {
+export default function ResultsPage({ data: dataProp, onBack }) {
   const { t, language } = useLanguage();
   const [activeFrame, setActiveFrame] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [sharing, setSharing] = useState(false);
   const [sharePreview, setSharePreview] = useState(null);
+  const [loadedData, setLoadedData] = useState(null);
+
+  // If data prop is missing (e.g. page refresh), load most recent analysis from IndexedDB
+  useEffect(() => {
+    if (!dataProp && !loadedData) {
+      getHistory().then(history => {
+        if (history.length > 0) setLoadedData(history[0]);
+      }).catch(() => {});
+    }
+  }, [dataProp, loadedData]);
+
+  const data = dataProp || loadedData;
 
   if (!data || !data.coaching) {
     return (
@@ -439,8 +452,8 @@ export default function ResultsPage({ data, onBack }) {
       {/* Biomechanics Metrics */}
       <MetricsPanel biomechanics={coaching.biomechanics} language={language} />
 
-      {/* TPI Kinematic Sequencing (Front camera only) */}
-      {data.sequencing && data.cameraAngle === 'front' && <SequencingPanel sequencing={data.sequencing} />}
+      {/* TPI Kinematic Sequencing */}
+      {data.sequencing && <SequencingPanel sequencing={data.sequencing} />}
 
       {/* Tempo Analysis */}
       <TempoPanel frames={data.frames} />

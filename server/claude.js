@@ -216,7 +216,13 @@ Valid JSON only — no markdown, no code fences:
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
-    system: systemPrompt,
+    system: [
+      {
+        type: 'text',
+        text: systemPrompt,
+        cache_control: { type: 'ephemeral' }, // Cache the large system prompt (~3000 tokens)
+      },
+    ],
     messages: [{ role: 'user', content }],
   });
 
@@ -245,13 +251,37 @@ export async function summarizeAnalysis(geminiResult, claudeResult, language = '
   const client = getClient();
   const sv = language === 'sv';
 
+  // Build compact summaries to reduce token usage (~60% reduction vs full JSON)
+  const geminiCompact = {
+    overallMotionGrade: geminiResult?.overallMotionGrade,
+    tempoRatio: geminiResult?.tempoRatio,
+    tempoGrade: geminiResult?.tempoGrade,
+    sequencingOrder: geminiResult?.sequencingOrder,
+    sequencingCorrect: geminiResult?.sequencingCorrect,
+    transitionQuality: geminiResult?.transitionQuality,
+    castingDetected: geminiResult?.castingDetected,
+    dynamicBalance: geminiResult?.dynamicBalance,
+    keyMotionFaults: geminiResult?.keyMotionFaults?.slice(0, 5),
+    motionSummary: geminiResult?.motionSummary,
+  };
+
+  const claudeCompact = {
+    totalScore: claudeResult?.totalScore,
+    estimatedHandicap: claudeResult?.estimatedHandicap,
+    faultsDetected: claudeResult?.faultsDetected?.slice(0, 5),
+    categories: claudeResult?.categories?.map(c => ({ name: c.name, score: c.score, status: c.status })),
+    biomechanics: claudeResult?.biomechanics,
+    causalChain: claudeResult?.causalChain,
+    recommendedDrill: claudeResult?.recommendedDrill,
+  };
+
   const prompt = `You are a HEAD GOLF COACH. Two specialist analysts have examined the same golf swing:
 
 ## ANALYST 1: MOTION SPECIALIST (analyzed video)
-${JSON.stringify(geminiResult, null, 2)}
+${JSON.stringify(geminiCompact)}
 
 ## ANALYST 2: POSITION SPECIALIST (analyzed 8 key frames)
-${JSON.stringify(claudeResult, null, 2)}
+${JSON.stringify(claudeCompact)}
 
 ## YOUR TASK
 Combine both analyses into ONE unified coaching report. Your unique value is CAUSAL ANALYSIS — finding connections between motion faults and position faults.

@@ -34,6 +34,7 @@ import { dirname, join } from 'path';
 import { analyzeMotion, analyzeFullSwing } from './gemini.js';
 import { analyzePosition, summarizeAnalysis } from './claude.js';
 import { requireAuth } from './auth.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 console.log('[STARTUP] All imports loaded successfully');
 
@@ -174,7 +175,6 @@ ${historyBlock}
 - ${langInstruction}`;
     }
 
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-2.5-flash-preview-04-17',
@@ -242,18 +242,20 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     } = req.body;
     let tier = req.body.tier || 'basic';
 
-    // Multer places the file in req.file, we must convert it back to Base64 for Gemini/Claude if needed.
-    // Or send it directly if SDK supports it.
-    let videoStr = null;
-    if (req.file) {
-      videoStr = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    }
+    // Keep video as raw buffer — only convert to base64 when Gemini needs it
+    let videoBuffer = req.file ? req.file.buffer : null;
+    let videoMimeType = req.file ? req.file.mimetype : null;
 
     const {
-      video: fallbackVideo, // in case someone still sends it in JSON
+      video: fallbackVideo, // in case someone still sends it in JSON (already base64)
     } = req.body;
 
-    const video = videoStr || fallbackVideo;
+    // For Gemini: convert buffer to data-URI only when needed
+    const getVideoDataUri = () => {
+      if (videoBuffer) return `data:${videoMimeType};base64,${videoBuffer.toString('base64')}`;
+      return fallbackVideo || null;
+    };
+    const hasVideo = Boolean(videoBuffer || fallbackVideo);
 
     let frames = [];
     if (req.body.frames) {
@@ -300,7 +302,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
 
     if (!frames || frames.length === 0) {
       // For basic tier with video, frames are optional (Gemini analyzes video directly)
-      if (tier === 'basic' && video) {
+      if (tier === 'basic' && hasVideo) {
         console.log('[analyze] Basic tier with video but no frames — proceeding with video-only analysis');
       } else {
         return res.status(400).json({ error: 'Missing frames data. Please re-record your swing.' });
@@ -310,7 +312,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
     const hasGemini = Boolean(process.env.GEMINI_API_KEY);
 
-    console.log(`[analyze] Start — tier=${tier}, engines: claude=${hasAnthropic}, gemini=${hasGemini && Boolean(video)}, frames=${frames.length}, angle=${cameraAngle}`);
+    console.log(`[analyze] Start — tier=${tier}, engines: claude=${hasAnthropic}, gemini=${hasGemini && hasVideo}, frames=${frames.length}, angle=${cameraAngle}`);
 
     let geminiResult = null;
     let claudeResult = null;
@@ -321,7 +323,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
       if (!hasGemini) {
         return res.status(400).json({ error: 'Basic tier requires a Gemini API key. Set GEMINI_API_KEY in environment.' });
       }
-      if (!video) {
+      if (!hasVideo) {
         // No video available — auto-fallback to Claude frame analysis if available
         if (hasAnthropic && frames.length > 0) {
           console.log('[analyze] Basic tier: no video, auto-fallback to premium (Claude frames)');
@@ -337,7 +339,7 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     if (tier === 'basic') {
 
       try {
-        geminiResult = await analyzeFullSwing(video, cameraAngle, language, knowledgeBase);
+        geminiResult = await analyzeFullSwing(getVideoDataUri(), cameraAngle, language, knowledgeBase);
         usedEngines.push('gemini');
       } catch (err) {
         console.error('[Gemini Full] Error:', err.message);
@@ -361,9 +363,9 @@ app.post('/api/analyze', upload.single('video'), async (req, res) => {
     // ── PREMIUM TIER: Dual Engine (Gemini motion + Claude position → Summarizer) ──
     const promises = [];
 
-    if (hasGemini && video) {
+    if (hasGemini && hasVideo) {
       promises.push(
-        analyzeMotion(video, cameraAngle, language)
+        analyzeMotion(getVideoDataUri(), cameraAngle, language)
           .then(r => { geminiResult = r; usedEngines.push('gemini'); })
           .catch(err => { console.error('[Gemini] Error:', err.message); })
       );

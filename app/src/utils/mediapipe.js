@@ -13,6 +13,10 @@ import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 let poseLandmarker = null;
 let poseLandmarkerVideo = null;
+let cachedVision = null; // Shared FilesetResolver — loaded once for both modes
+
+const WASM_VERSION = '0.10.34'; // Locked to match package.json — never use @latest
+const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${WASM_VERSION}/wasm`;
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 const MODEL_URL = isMobile 
@@ -23,14 +27,22 @@ const MODEL_URL = isMobile
 const LITE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task';
 
 /**
+ * Get or create the shared FilesetResolver (WASM runtime)
+ * Cached so we never download it twice.
+ */
+async function getVision() {
+  if (cachedVision) return cachedVision;
+  cachedVision = await FilesetResolver.forVisionTasks(WASM_URL);
+  return cachedVision;
+}
+
+/**
  * Load PoseLandmarker for IMAGE mode (lazy, cached)
  */
 async function loadPoseLandmarker() {
   if (poseLandmarker) return poseLandmarker;
 
-  const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-  );
+  const vision = await getVision();
 
   poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
     baseOptions: {
@@ -48,14 +60,12 @@ async function loadPoseLandmarker() {
 
 /**
  * Load PoseLandmarker for VIDEO mode (real-time viewfinder)
- * Uses lite model for speed. Separate instance from IMAGE mode.
+ * Uses lite model for speed. Separate instance because IMAGE mode uses heavy model.
  */
 export async function loadPoseLandmarkerForVideo() {
   if (poseLandmarkerVideo) return poseLandmarkerVideo;
 
-  const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-  );
+  const vision = await getVision(); // Reuses cached WASM — no double download
 
   poseLandmarkerVideo = await PoseLandmarker.createFromOptions(vision, {
     baseOptions: {

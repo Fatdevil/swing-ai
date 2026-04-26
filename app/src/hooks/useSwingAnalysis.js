@@ -197,17 +197,17 @@ export function useSwingAnalysis({ language, onAnalysisComplete }) {
       try {
         const { buildKnowledgeBasePrompt } = await import('../utils/golfKnowledge.js');
         knowledgeBase = buildKnowledgeBasePrompt(language);
-      } catch { /* optional */ }
+      } catch (e) { console.warn('[analyze] golfKnowledge load failed:', e.message); }
       if (!guestMode) {
         try {
           const profileStr = getSetting('coaching_profile');
           if (profileStr) coachingProfile = profileStr;
-        } catch { /* optional */ }
+        } catch (e) { console.warn('[analyze] coaching_profile load failed:', e.message); }
         try {
           const { getCoachingHistory, buildCoachingHistoryPrompt } = await import('../utils/coachingHistory.js');
           const history = await getCoachingHistory();
           coachingHistory = buildCoachingHistoryPrompt(history, language);
-        } catch { /* optional */ }
+        } catch (e) { console.warn('[analyze] coachingHistory load failed:', e.message); }
       }
 
       const result = await analyzeSwing({

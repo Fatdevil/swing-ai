@@ -213,6 +213,23 @@ export default function ProfilePage() {
         )}
       </section>
 
+      {/* Reset Onboarding */}
+      <section className="bg-surface-container rounded-lg p-6 border border-outline-variant/10 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-primary-fixed">replay</span>
+          <h3 className="font-headline font-bold">{sv ? 'Onboarding' : 'Onboarding'}</h3>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.removeItem('onboarding_done');
+            window.location.reload();
+          }}
+          className="border border-outline-variant/20 text-on-surface-variant font-bold py-3 px-6 rounded-full hover:bg-surface-container-high transition-colors active:scale-95 text-sm"
+        >
+          {sv ? 'Visa välkomstguiden igen' : 'Show welcome guide again'}
+        </button>
+      </section>
+
       {/* Version */}
       <div className="text-center text-on-surface-variant/40 text-xs font-label tracking-widest uppercase">
         {t('appVersion')} 1.0.0 — MVP

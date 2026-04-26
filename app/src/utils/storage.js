@@ -60,6 +60,26 @@ export async function getHistory() {
 }
 
 /**
+ * Get lightweight metadata for analyses list (no base64 frames).
+ * Much faster than getHistory() for UI lists — each full analysis can be 1-5MB.
+ * @param {number} limit - Max items to return (default 20)
+ * @returns {Array<{ id, timestamp, totalScore, imageThumbnail, cameraAngle, _meta }>}
+ */
+export async function getHistoryMeta(limit = 20) {
+  const db = await getDB();
+  const all = await db.getAll(STORE_NAME);
+  const sorted = all.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+  return sorted.map(item => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    totalScore: item.coaching?.totalScore ?? item.totalScore ?? null,
+    imageThumbnail: item.imageThumbnail || null,
+    cameraAngle: item.cameraAngle || null,
+    _meta: item._meta || null,
+  }));
+}
+
+/**
  * Get a single analysis by ID
  */
 export async function getAnalysis(id) {

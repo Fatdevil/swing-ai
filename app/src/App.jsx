@@ -1,6 +1,7 @@
 import { useState, useCallback, lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import { useLanguage } from './i18n/LanguageContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import TopAppBar from './components/TopAppBar';
 import BottomNavBar from './components/BottomNavBar';
@@ -35,6 +36,7 @@ function PageLoader() {
 
 export default function App() {
   const { user, loading, isFirebaseConfigured: hasAuth } = useAuth();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [analysisData, setAnalysisData] = useState(null);
@@ -120,11 +122,11 @@ export default function App() {
       {isOffline && (
         <div className="bg-error text-white text-center text-[10px] py-1.5 font-bold uppercase tracking-widest fixed top-16 left-0 right-0 z-40 shadow-[0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2">
           <span className="material-symbols-outlined text-[14px]">wifi_off</span>
-          Offline Mode
+          {language === 'sv' ? 'Offline-läge' : 'Offline Mode'}
         </div>
       )}
       <main className="pt-16 pb-24">
-        <ErrorBoundary>
+        <ErrorBoundary language={language}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route

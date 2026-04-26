@@ -26,10 +26,10 @@ export default class ErrorBoundary extends Component {
             <span className="material-symbols-outlined text-error text-3xl">warning</span>
           </div>
           <h2 className="font-headline text-xl font-bold text-on-surface mb-2">
-            Något gick fel
+            {this.props.language === 'en' ? 'Something went wrong' : 'Något gick fel'}
           </h2>
           <p className="text-on-surface-variant text-sm max-w-xs mb-6 leading-relaxed">
-            En oväntad krasch inträffade. Prova att ladda om sidan.
+            {this.props.language === 'en' ? 'An unexpected crash occurred. Try reloading the page.' : 'En oväntad krasch inträffade. Prova att ladda om sidan.'}
           </p>
           <button
             onClick={() => {
@@ -38,12 +38,12 @@ export default class ErrorBoundary extends Component {
             }}
             className="px-6 py-3 rounded-full bg-primary-fixed text-on-primary-fixed font-bold text-sm uppercase tracking-widest active:scale-95 transition-transform"
           >
-            Ladda om
+            {this.props.language === 'en' ? 'Reload' : 'Ladda om'}
           </button>
           {this.state.error && (
             <details className="mt-6 text-left w-full max-w-sm">
               <summary className="text-on-surface-variant/40 text-xs cursor-pointer">
-                Teknisk info
+                {this.props.language === 'en' ? 'Technical info' : 'Teknisk info'}
               </summary>
               <pre className="mt-2 text-[10px] text-error/60 bg-surface-container rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
                 {this.state.error.toString()}
