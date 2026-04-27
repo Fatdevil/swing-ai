@@ -48,13 +48,6 @@ export default function FloatingChat() {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  // Build coaching context on first open
-  useEffect(() => {
-    if (isOpen && !coachingContext) {
-      buildContext().then(setCoachingContext);
-    }
-  }, [isOpen, coachingContext, buildContext]);
-
   const buildContext = useCallback(async () => {
     const profile = getSetting('coaching_profile') || {};
     const approach = profile.approach ? COACHING_APPROACHES[profile.approach] : null;
@@ -84,6 +77,13 @@ export default function FloatingChat() {
       personalityInstructions: personality.promptInstructions,
     };
   }, [language, analysisContext]);
+
+  // Build coaching context on first open
+  useEffect(() => {
+    if (isOpen && !coachingContext) {
+      buildContext().then(setCoachingContext);
+    }
+  }, [isOpen, coachingContext, buildContext]);
 
   const sendMessage = async () => {
     const text = input.trim();
