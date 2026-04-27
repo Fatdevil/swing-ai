@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPoseViewfinderDetector, POSE_STATE, CAMERA_ANGLE } from '../utils/poseViewfinderDetector';
-import { drawSkeleton } from '../utils/mediapipe';
 
 /**
  * SwingViewfinder — Smart camera viewfinder with real-time pose detection
@@ -14,7 +13,7 @@ import { drawSkeleton } from '../utils/mediapipe';
 export default function SwingViewfinder({ onRecordingComplete, onCancel, language = 'sv' }) {
   const t = (sv, en) => language === 'sv' ? sv : en;
 
-  const [isReady, setIsReady] = useState(false);
+
   const [poseState, setPoseState] = useState(POSE_STATE.LOADING);
   const [poseConfidence, setPoseConfidence] = useState(0);
   const [detectedAngle, setDetectedAngle] = useState(CAMERA_ANGLE.UNKNOWN);
@@ -66,7 +65,6 @@ export default function SwingViewfinder({ onRecordingComplete, onCancel, languag
 
       if (cancelled) return;
 
-      setIsReady(true);
       startDetectionLoop();
     }
 
@@ -76,7 +74,7 @@ export default function SwingViewfinder({ onRecordingComplete, onCancel, languag
       cancelled = true;
       cleanup();
     };
-  }, []);
+  }, [startDetectionLoop, cleanup]);
 
   // Detection loop
   const startDetectionLoop = useCallback(() => {
@@ -113,7 +111,7 @@ export default function SwingViewfinder({ onRecordingComplete, onCancel, languag
       loopRef.current = requestAnimationFrame(loop);
     };
     loopRef.current = requestAnimationFrame(loop);
-  }, [language]);
+  }, [language, drawOverlay]);
 
   // Draw skeleton overlay and status indicators
   const drawOverlay = useCallback((canvas, video, result) => {
@@ -224,7 +222,7 @@ export default function SwingViewfinder({ onRecordingComplete, onCancel, languag
         stopRecording();
       }
     }, 30000);
-  }, [detectedAngle, onRecordingComplete]);
+  }, [detectedAngle, onRecordingComplete, stopRecording, cleanup]);
 
   const stopRecording = useCallback(() => {
     if (recorderRef.current?.state === 'recording') {
