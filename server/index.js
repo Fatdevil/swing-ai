@@ -69,7 +69,7 @@ async function withRetry(fn, maxRetries = 3, baseDelayMs = 1000) {
       await new Promise(r => setTimeout(r, delay));
     }
   }
-  }
+  throw lastErr;
 }
 
 const __filename = fileURLToPath(import.meta.url);
