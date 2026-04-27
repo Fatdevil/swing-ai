@@ -103,14 +103,16 @@ app.use(helmet({
 const ALLOWED_ORIGINS = (
   process.env.ALLOWED_ORIGIN
     ? process.env.ALLOWED_ORIGIN.split(',')
-    : ['http://localhost:5173', 'http://localhost:3001']
+    : ['http://localhost:5173', 'http://localhost:3001', 'https://swing-ai-production.up.railway.app']
 );
 app.use(cors({
   origin: (origin, callback) => {
     // Tillåt requests utan origin (t.ex. curl, Railway health checks)
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     console.warn('[CORS] Blocked request from disallowed origin:', origin);
-    callback(new Error(`CORS: Origin ${origin} not allowed`));
+    // Return false instead of throwing an error, so static files can still be served 
+    // (though API requests will be blocked by the browser)
+    callback(null, false);
   },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Authorization', 'Content-Type'],
