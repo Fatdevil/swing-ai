@@ -3,6 +3,70 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { getHistory } from '../utils/storage';
 import ScoreGauge from '../components/ScoreGauge';
 
+/* Swing Card sub-component */
+function SwingCard({ item, onClick }) {
+  const score = item.totalScore || 0;
+  const date = new Date(item.timestamp);
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = date.toLocaleDateString();
+
+  const getScoreColor = (s) => {
+    if (s >= 80) return 'text-primary-fixed';
+    if (s >= 70) return 'text-on-surface';
+    return 'text-error';
+  };
+
+  const getBadge = (s) => {
+    if (s >= 85) return { label: 'PRO', bg: 'bg-primary-fixed', text: 'text-on-primary-fixed' };
+    if (s >= 70) return { label: 'STABLE', bg: 'bg-secondary', text: 'text-on-secondary' };
+    return { label: 'ALERT', bg: 'bg-error', text: 'text-on-error' };
+  };
+
+  const badge = getBadge(score);
+
+  return (
+    <button
+      onClick={onClick}
+      className="group bg-surface-container rounded-lg overflow-hidden border border-outline-variant/10 hover:shadow-[0_10px_30px_rgba(0,0,0,0.4)] transition-all text-left w-full"
+    >
+      {/* Thumbnail area */}
+      <div className="relative h-48 overflow-hidden bg-surface-container-high">
+        {item.imageThumbnail ? (
+          <img
+            src={URL.createObjectURL(item.imageThumbnail)}
+            alt="Swing"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="material-symbols-outlined text-outline-variant text-5xl">sports_golf</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+        <div className="absolute bottom-4 left-4 flex items-center gap-2">
+          <span className={`${badge.bg} ${badge.text} text-[10px] font-black px-2 py-0.5 rounded-full`}>
+            {badge.label}
+          </span>
+          <span className="text-on-surface text-xs font-medium">{timeStr}</span>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-6 flex justify-between items-center">
+        <div className="space-y-1">
+          <p className="text-on-surface font-bold">{item.coaching?.categories?.[0]?.name || 'Analysis'}</p>
+          <p className="text-on-surface-variant text-xs font-medium">{dateStr}</p>
+        </div>
+        <div className="text-right">
+          <span className={`${getScoreColor(score)} font-headline text-2xl font-bold`}>
+            {score}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function HomePage({ onNavigate, onViewAnalysis }) {
   const { t, language } = useLanguage();
   const sv = language === 'sv';
@@ -291,66 +355,3 @@ export default function HomePage({ onNavigate, onViewAnalysis }) {
   );
 }
 
-/* Swing Card sub-component */
-function SwingCard({ item, onClick }) {
-  const score = item.totalScore || 0;
-  const date = new Date(item.timestamp);
-  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const dateStr = date.toLocaleDateString();
-
-  const getScoreColor = (s) => {
-    if (s >= 80) return 'text-primary-fixed';
-    if (s >= 70) return 'text-on-surface';
-    return 'text-error';
-  };
-
-  const getBadge = (s) => {
-    if (s >= 85) return { label: 'PRO', bg: 'bg-primary-fixed', text: 'text-on-primary-fixed' };
-    if (s >= 70) return { label: 'STABLE', bg: 'bg-secondary', text: 'text-on-secondary' };
-    return { label: 'ALERT', bg: 'bg-error', text: 'text-on-error' };
-  };
-
-  const badge = getBadge(score);
-
-  return (
-    <button
-      onClick={onClick}
-      className="group bg-surface-container rounded-lg overflow-hidden border border-outline-variant/10 hover:shadow-[0_10px_30px_rgba(0,0,0,0.4)] transition-all text-left w-full"
-    >
-      {/* Thumbnail area */}
-      <div className="relative h-48 overflow-hidden bg-surface-container-high">
-        {item.imageThumbnail ? (
-          <img
-            src={URL.createObjectURL(item.imageThumbnail)}
-            alt="Swing"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="material-symbols-outlined text-outline-variant text-5xl">sports_golf</span>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-        <div className="absolute bottom-4 left-4 flex items-center gap-2">
-          <span className={`${badge.bg} ${badge.text} text-[10px] font-black px-2 py-0.5 rounded-full`}>
-            {badge.label}
-          </span>
-          <span className="text-on-surface text-xs font-medium">{timeStr}</span>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="p-6 flex justify-between items-center">
-        <div className="space-y-1">
-          <p className="text-on-surface font-bold">{item.coaching?.categories?.[0]?.name || 'Analysis'}</p>
-          <p className="text-on-surface-variant text-xs font-medium">{dateStr}</p>
-        </div>
-        <div className="text-right">
-          <span className={`${getScoreColor(score)} font-headline text-2xl font-bold`}>
-            {score}
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-}
