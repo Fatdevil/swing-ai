@@ -129,7 +129,7 @@ export default function App() {
           </div>
         )}
         {/* B3 FIX: mt-7 när offline-banner visas så innehållet inte skyms */}
-        <main className={`pt-16 pb-24${isOffline ? ' mt-7' : ''}`}>
+        <main className={`pt-16 pb-40${isOffline ? ' mt-7' : ''}`}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route
