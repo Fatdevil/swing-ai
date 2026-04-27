@@ -1,7 +1,13 @@
-import { useState, useCallback, lazy, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useCallback, lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { useLanguage } from './i18n/LanguageContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import TopAppBar from './components/TopAppBar';
+import BottomNavBar from './components/BottomNavBar';
+import FloatingChat from './components/FloatingChat';
+import WelcomeOverlay from './components/WelcomeOverlay';
+import LoginPage from './pages/LoginPage';
 
 // Lazy-load heavy pages for code-splitting (Fix #18 from audit)
 const HomePage = lazy(() => import('./pages/HomePage'));

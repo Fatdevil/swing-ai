@@ -6,6 +6,7 @@ import {
   DIFFICULTY,
 } from '../utils/challenges';
 import { REFERENCE_PLAYERS } from '../utils/referencePlayers';
+import { getSetting } from '../utils/storage';
 import { generateChallengeCard, shareImage } from '../utils/shareCard';
 import { getAuth } from 'firebase/auth';
 

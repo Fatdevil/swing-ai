@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getSetting } from '../utils/storage';
 import { getCoachingHistory, buildCoachingHistoryPrompt } from '../utils/coachingHistory';
@@ -53,9 +53,9 @@ export default function FloatingChat() {
     if (isOpen && !coachingContext) {
       buildContext().then(setCoachingContext);
     }
-  }, [isOpen, coachingContext, buildContext]);
+  }, [isOpen]);
 
-  const buildContext = useCallback(async () => {
+  async function buildContext() {
     const profile = getSetting('coaching_profile') || {};
     const approach = profile.approach ? COACHING_APPROACHES[profile.approach] : null;
     const player = profile.referencePlayer ? REFERENCE_PLAYERS[profile.referencePlayer] : null;
@@ -83,7 +83,7 @@ export default function FloatingChat() {
       historyCtx: historyCtx + recentAnalysisCtx,
       personalityInstructions: personality.promptInstructions,
     };
-  }, [language, analysisContext]);
+  }
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -118,7 +118,7 @@ export default function FloatingChat() {
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
       }
-    } catch {
+    } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Kunde inte nå servern' }]);
     }
 

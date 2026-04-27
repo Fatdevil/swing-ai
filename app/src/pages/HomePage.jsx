@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getHistory } from '../utils/storage';
+import ScoreGauge from '../components/ScoreGauge';
 
 export default function HomePage({ onNavigate, onViewAnalysis }) {
   const { t, language } = useLanguage();

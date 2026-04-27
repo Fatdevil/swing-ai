@@ -7,7 +7,8 @@ import {
   getSwingThought, setSwingThought as saveSwingThought, clearSwingThought,
   getJournalEntries, addJournalEntry, updateJournalEntry, deleteJournalEntry, togglePinEntry,
 } from '../utils/swingJournal';
-import { setSetting } from '../utils/storage';
+import { getSetting, setSetting } from '../utils/storage';
+import { clearCoachingHistory } from '../utils/coachingHistory';
 
 /**
  * CoachDashboard — living coaching summary

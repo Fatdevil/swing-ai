@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useLanguage } from '../i18n/LanguageContext';
 import { getPhaseLabel } from '../utils/videoFrames';
 import { useSwingAnalysis } from '../hooks/useSwingAnalysis';
+import SwingViewfinder from '../components/SwingViewfinder';
 
 export default function RecordPage({ onAnalysisComplete, onNavigate }) {
   const { t, language } = useLanguage();
